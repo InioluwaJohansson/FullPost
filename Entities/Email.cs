@@ -1,7 +1,7 @@
-﻿using Vee_Tailoring.Contracts;
-using Vee_Tailoring.Models.Enums;
+﻿using FullPost.Contracts;
+using FullPost.Models;
 
-namespace Vee_Tailoring.Entities;
+namespace FullPost.Entities;
 public class Email : AuditableEntity
 {
     public string ReceiverName { get; set; }
@@ -10,6 +10,5 @@ public class Email : AuditableEntity
     public string Subject { get; set; }
     public string AttachmentUrl { get; set; }
     public int StaffId { get; set; }
-    public EmailType EmailType { get; set; }
     public Staff Staff { get; set; }
 }
