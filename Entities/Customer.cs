@@ -7,9 +7,9 @@ public class Customer: AuditableEntity
     public User User { get; set; }
     public int UserId { get; set; }
 
-    public string CustomerId { get; set; } = Guid.NewGuid().ToString();
-    public string FullName { get; set; }
-    public string Email { get; set; }
+    public string CustomerId { get; set; } = Guid.NewGuid().ToString().Substring(0, 17);
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
 
     public string GoogleId { get; set; }
     public string GoogleAccessToken { get; set; }

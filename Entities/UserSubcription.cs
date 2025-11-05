@@ -2,7 +2,7 @@ namespace FullPost.Entities;
 public class UserSubscription
 {
     public int Id { get; set; }
-    public string UserId { get; set; } = default!; // Could be linked to your auth user
+    public int UserId { get; set; }
     public int PlanId { get; set; }
     public SubscriptionPlan Plan { get; set; } = default!;
     public DateTime StartDate { get; set; } = DateTime.UtcNow;

@@ -1,7 +1,8 @@
 namespace FullPost.Models.DTOs;
+
 public class GetPostDto
 {
-    public string Platform { get; set; }           // "Twitter", "Facebook", "Instagram"
+    public string Platform { get; set; }
     public string Id { get; set; }
     public string Text { get; set; }
     public string MediaUrl { get; set; }

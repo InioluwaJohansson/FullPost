@@ -11,22 +11,24 @@ public class PostService : IPostService
     private readonly ITwitterService _twitterService;
     private readonly IFacebookService _facebookService;
     private readonly IInstagramService _instagramService;
+    private readonly ISubscriptionService _subscriptionService;
     private readonly IPostRepo _repository;
     private readonly ICustomerRepo _customerRepository;
 
-    public PostService(ITwitterService twitterService, IFacebookService facebookService, IInstagramService instagramService, IPostRepo repository, ICustomerRepo customerRepository)
+    public PostService(ITwitterService twitterService, IFacebookService facebookService, IInstagramService instagramService, ISubscriptionService subscriptionService, IPostRepo repository, ICustomerRepo customerRepository)
     {
         _twitterService = twitterService;
         _facebookService = facebookService;
         _instagramService = instagramService;
+        _subscriptionService = subscriptionService;
         _repository = repository;
         _customerRepository = customerRepository;
     }
 
-   public async Task<BaseResponse> CreatePostAsync(int customerId,string caption,List<IFormFile>? mediaFiles = null,List<string>? platforms = null)
+    public async Task<BaseResponse> CreatePostAsync(int userId,string caption, List<IFormFile>? mediaFiles = null,List<string>? platforms = null)
     {
-        var customer = await _customerRepository.Get(c => c.Id == customerId);
-        if (customer == null)
+        var customer = await _customerRepository.Get(c => c.UserId == userId);
+        if (customer == null || await _subscriptionService.CheckUserSubscriptionStatus(userId) == false)
         {
             return new BaseResponse
             {
@@ -37,10 +39,8 @@ public class PostService : IPostService
         try
         {
             platforms ??= new List<string> { "twitter", "facebook", "instagram" };
-
             string? facebookId = null, instagramId = null; ITweet twitterId = null;
             List<string> uploadedUrls = new();
-
             foreach (var platform in platforms)
             {
                 switch (platform.ToLower())
@@ -64,16 +64,14 @@ public class PostService : IPostService
 
             var post = new Post
             {
-                CustomerId = customer.Id,
+                UserId = customer.UserId,
                 Caption = caption,
                 MediaUrls = JsonSerializer.Serialize(uploadedUrls),
                 TwitterPostId = twitterId.IdStr,
                 FacebookPostId = facebookId,
                 InstagramPostId = instagramId
             };
-
             await _repository.Create(post);
-
             return new BaseResponse
             {
                 Status = true,
@@ -90,9 +88,9 @@ public class PostService : IPostService
         }
     }
 
-    public async Task<BaseResponse> EditPostAsync(string postId, int customerId, string newCaption, List<IFormFile>? newMedia = null)
+    public async Task<BaseResponse> EditPostAsync(string postId, int userId, string newCaption, List<IFormFile>? newMedia = null)
     {
-        var customer = await _customerRepository.Get(c => c.Id == customerId);
+        var customer = await _customerRepository.Get(c => c.UserId == userId);
         if (customer == null)
         {
             return new BaseResponse
@@ -104,8 +102,8 @@ public class PostService : IPostService
         try
         {
             var post = await _repository.Get(x => x.PostId == postId);
-            if (post == null)
-                return new BaseResponse { Status = false, Message = "Post not found." };
+            if (post == null || await _subscriptionService.CheckUserSubscriptionStatus(userId))
+                return new BaseResponse { Status = false, Message = "Post not found. Or subscription Expired!" };
 
             if (!string.IsNullOrEmpty(post.TwitterPostId.ToString()))
                 await _twitterService.EditTweetAsync(
@@ -153,7 +151,6 @@ public class PostService : IPostService
             };
         }
     }
-
     public async Task<BaseResponse> DeletePostAsync(string postId, int customerId)
     {
         var customer = await _customerRepository.Get(c => c.Id == customerId);
@@ -162,7 +159,7 @@ public class PostService : IPostService
             return new BaseResponse
             {
                 Status = false,
-                Message = "Customer not found. Cannot create post. Login required."
+                Message = "Customer not found. Cannot delete post. Login required."
             };
         }
         try
@@ -197,9 +194,9 @@ public class PostService : IPostService
             };
         }
     }
-    public async Task<PostsResponseModel> GetAllPostsAsync(int customerId, int limit = 5)
+    public async Task<PostsResponseModel> GetAllPostsAsync(int userId, int limit = 5)
     {
-        var customer = await _customerRepository.Get(c => c.Id == customerId);
+        var customer = await _customerRepository.Get(c => c.UserId == userId);
         if (customer == null)
         {
             return new PostsResponseModel
@@ -242,9 +239,7 @@ public class PostService : IPostService
                         Text = post.TryGetProperty("message", out var msg) ? msg.GetString() : "",
                         MediaUrl = post.TryGetProperty("full_picture", out var pic) ? pic.GetString() : null,
                         Permalink = post.TryGetProperty("permalink_url", out var link) ? link.GetString() : null,
-                        CreatedAt = post.TryGetProperty("created_time", out var time)
-                            ? DateTime.Parse(time.GetString())
-                            : DateTime.MinValue
+                        CreatedAt = post.TryGetProperty("created_time", out var time) ? DateTime.Parse(time.GetString()) : DateTime.MinValue
                     });
                 }
             }
@@ -269,9 +264,7 @@ public class PostService : IPostService
                         Text = post.TryGetProperty("caption", out var cap) ? cap.GetString() : "",
                         MediaUrl = post.TryGetProperty("media_url", out var url) ? url.GetString() : null,
                         Permalink = post.TryGetProperty("permalink", out var link) ? link.GetString() : null,
-                        CreatedAt = post.TryGetProperty("timestamp", out var time)
-                            ? DateTime.Parse(time.GetString())
-                            : DateTime.MinValue
+                        CreatedAt = post.TryGetProperty("timestamp", out var time) ? DateTime.Parse(time.GetString()): DateTime.MinValue
                     });
                 }
             }
@@ -280,7 +273,22 @@ public class PostService : IPostService
         {
             Console.WriteLine($"[Instagram Error]: {ex.Message}");
         }
-
+        var homePosts = await _repository.GetByExpression(x => x.UserId == userId);
+        if (homePosts != null)
+        {
+            foreach (var post in homePosts)
+            {
+                allPosts.Add(new GetPostDto
+                {
+                    Platform = "default",
+                    Id = post.Id.ToString(),
+                    Text = post.Caption,
+                    MediaUrl = post.MediaUrls, // might need deserialization
+                    Permalink = "",
+                    CreatedAt = post.CreatedOn,
+                });
+            }
+        }
         return new PostsResponseModel
         {
             Status = true,
