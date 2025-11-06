@@ -8,54 +8,44 @@ using FullPost.Interfaces.Services;
 using FullPost.Entities;
 using FullPost.Interfaces.Respositories;
 
-namespace FullPost.Controllers
+namespace FullPost.Controllers;
+
+[ApiController]
+[Route("FullPost/[controller]")]
+public class PostController : Controller
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class PostsController : ControllerBase
+    private readonly IPostService _postService;
+
+    public PostController(IPostService postService)
     {
-        private readonly IPostService _postService;
-        private readonly ICustomerRepository _customerRepository; // Optional, if you want to get user from DB
+        _postService = postService;
+    }
 
-        public PostsController(IPostService postService, ICustomerRepository customerRepository)
-        {
-            _postService = postService;
-            _customerRepository = customerRepository;
-        }
+    [HttpPost("create")]
+    public async Task<IActionResult> CreatePost([FromForm] CreatePostDto request)
+    {
+        var result = await _postService.CreatePostAsync(request);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
 
-        [HttpPost("create")]
-        [Consumes("multipart/form-data")]
-        public async Task<ActionResult<BaseResponse>> CreatePost([FromForm] string customerId,[FromForm] string caption,[FromForm] List<IFormFile>? mediaFiles,[FromForm] List<string>? platforms)
-        {
-            var customer = await _customerRepository.GetByIdAsync(Guid.Parse(customerId));
-            if (customer == null)
-                return NotFound(new BaseResponse { Status = false, Message = "Customer not found." });
+    [HttpPut("edit/{postId}")]
+    public async Task<IActionResult> EditPost([FromForm] EditPostDto request)
+    {
+        var result = await _postService.EditPostAsync(request);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
 
-            var result = await _postService.CreatePostAsync(customer, caption, mediaFiles, platforms);
-            return Ok(result);
-        }
+    [HttpDelete("delete/{postId}")]
+    public async Task<IActionResult> DeletePost(string postId, int userId)
+    {
+        var result = await _postService.DeletePostAsync(postId, userId);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
 
-        [HttpPut("edit/{postId}")]
-        [Consumes("multipart/form-data")]
-        public async Task<ActionResult<BaseResponse>> EditPost(string postId,[FromForm] string customerId,[FromForm] string newCaption,[FromForm] List<IFormFile>? newMedia)
-        {
-            var customer = await _customerRepository.GetByIdAsync(Guid.Parse(customerId));
-            if (customer == null)
-                return NotFound(new BaseResponse { Status = false, Message = "Customer not found." });
-
-            var result = await _postService.EditPostAsync(postId, customer, newCaption, newMedia);
-            return Ok(result);
-        }
-
-        [HttpDelete("delete/{postId}")]
-        public async Task<ActionResult<BaseResponse>> DeletePost(Guid postId, [FromQuery] string customerId)
-        {
-            var customer = await _customerRepository.GetByIdAsync(Guid.Parse(customerId));
-            if (customer == null)
-                return NotFound(new BaseResponse { Status = false, Message = "Customer not found." });
-
-            var result = await _postService.DeletePostAsync(postId, customer);
-            return Ok(result);
-        }
+    [HttpGet("all/{userId}")]
+    public async Task<IActionResult> GetAllPosts(int userId)
+    {
+        var result = await _postService.GetAllPostsAsync(userId);
+        return Ok(result);
     }
 }
