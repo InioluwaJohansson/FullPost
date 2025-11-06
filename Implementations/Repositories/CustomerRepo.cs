@@ -11,5 +11,9 @@ public class CustomerRepo : BaseRepository<Customer>, ICustomerRepo
     {
         context = _context;
     }
+    public async Task<Customer?> GetById(int userId)
+    {
+        return await context.Customers.Include(c => c.User).FirstOrDefaultAsync(c => c.Id == userId);
+    }
 }
 

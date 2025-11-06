@@ -1,4 +1,11 @@
 namespace FullPost.Models.DTOs;
+public class CreateSubscriptionDto
+{
+    public string Name { get; set; } = default!;
+    public decimal Amount { get; set; }
+    public string Interval { get; set; } = default!;
+    public string? Description { get; set; }
+}
 public class SubscriptionDto
 {
     public int Id { get; set; }

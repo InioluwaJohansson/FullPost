@@ -25,10 +25,10 @@ public class PostService : IPostService
         _customerRepository = customerRepository;
     }
 
-    public async Task<BaseResponse> CreatePostAsync(int userId,string caption, List<IFormFile>? mediaFiles = null,List<string>? platforms = null)
+    public async Task<BaseResponse> CreatePostAsync(CreatePostDto createPostDto)
     {
-        var customer = await _customerRepository.Get(c => c.UserId == userId);
-        if (customer == null || await _subscriptionService.CheckUserSubscriptionStatus(userId) == false)
+        var customer = await _customerRepository.Get(c => c.UserId == createPostDto.UserId);
+        if (customer == null || await _subscriptionService.CheckUserSubscriptionStatus(createPostDto.UserId) == false)
         {
             return new BaseResponse
             {
@@ -38,25 +38,25 @@ public class PostService : IPostService
         }
         try
         {
-            platforms ??= new List<string> { "twitter", "facebook", "instagram" };
+            createPostDto.Platforms ??= new List<string> { "twitter", "facebook", "instagram" };
             string? facebookId = null, instagramId = null; ITweet twitterId = null;
             List<string> uploadedUrls = new();
-            foreach (var platform in platforms)
+            foreach (var platform in createPostDto.Platforms)
             {
                 switch (platform.ToLower())
                 {
                     case "twitter":
-                        var tResult = await _twitterService.PostTweetAsync(customer.TwitterAccessToken!, customer.TwitterAccessSecret!, caption, mediaFiles);
+                        var tResult = await _twitterService.PostTweetAsync(customer.TwitterAccessToken!, customer.TwitterAccessSecret!, createPostDto.Caption, createPostDto.MediaFiles);
                         twitterId = tResult;
                         break;
 
                     case "facebook":
-                        var fResult = await _facebookService.CreatePostAsync(customer.FacebookPageId!, customer.FacebookAccessToken!, caption, mediaFiles);
+                        var fResult = await _facebookService.CreatePostAsync(customer.FacebookPageId!, customer.FacebookAccessToken!, createPostDto.Caption, createPostDto.MediaFiles);
                         facebookId = fResult;
                         break;
 
                     case "instagram":
-                        var iResult = await _instagramService.CreatePostAsync(customer.InstagramUserId!, customer.InstagramAccessToken!, caption, mediaFiles);
+                        var iResult = await _instagramService.CreatePostAsync(customer.InstagramUserId!, customer.InstagramAccessToken!, createPostDto.Caption, createPostDto.MediaFiles);
                         instagramId = iResult;
                         break;
                 }
@@ -65,7 +65,7 @@ public class PostService : IPostService
             var post = new Post
             {
                 UserId = customer.UserId,
-                Caption = caption,
+                Caption = createPostDto.Caption,
                 MediaUrls = JsonSerializer.Serialize(uploadedUrls),
                 TwitterPostId = twitterId.IdStr,
                 FacebookPostId = facebookId,
@@ -88,9 +88,9 @@ public class PostService : IPostService
         }
     }
 
-    public async Task<BaseResponse> EditPostAsync(string postId, int userId, string newCaption, List<IFormFile>? newMedia = null)
+    public async Task<BaseResponse> EditPostAsync(EditPostDto editPostDto)
     {
-        var customer = await _customerRepository.Get(c => c.UserId == userId);
+        var customer = await _customerRepository.Get(c => c.UserId == editPostDto.UserId);
         if (customer == null)
         {
             return new BaseResponse
@@ -101,8 +101,8 @@ public class PostService : IPostService
         }
         try
         {
-            var post = await _repository.Get(x => x.PostId == postId);
-            if (post == null || await _subscriptionService.CheckUserSubscriptionStatus(userId))
+            var post = await _repository.Get(x => x.PostId == editPostDto.PostId);
+            if (post == null || await _subscriptionService.CheckUserSubscriptionStatus(editPostDto.UserId))
                 return new BaseResponse { Status = false, Message = "Post not found. Or subscription Expired!" };
 
             if (!string.IsNullOrEmpty(post.TwitterPostId.ToString()))
@@ -110,8 +110,8 @@ public class PostService : IPostService
                     customer.TwitterAccessToken!,
                     customer.TwitterAccessSecret!,
                     post.TwitterPostId,
-                    newCaption,
-                    newMedia
+                    editPostDto.NewCaption,
+                    editPostDto.NewMediaFiles
                 );
 
             if (!string.IsNullOrEmpty(post.FacebookPostId))
@@ -119,8 +119,8 @@ public class PostService : IPostService
                     customer.FacebookPageId!,
                     customer.FacebookAccessToken!,
                     post.FacebookPostId,
-                    newCaption,
-                    newMedia
+                    editPostDto.NewCaption,
+                    editPostDto.NewMediaFiles
                 );
 
             if (!string.IsNullOrEmpty(post.InstagramPostId))
@@ -128,11 +128,11 @@ public class PostService : IPostService
                     customer.InstagramUserId!,
                     customer.InstagramAccessToken!,
                     post.InstagramPostId,
-                    newCaption,
-                    newMedia
+                    editPostDto.NewCaption,
+                    editPostDto.NewMediaFiles
                 );
 
-            post.Caption = newCaption;
+            post.Caption = editPostDto.NewCaption;
             post.LastModifiedOn = DateTime.UtcNow;
             await _repository.Update(post);
 

@@ -4,14 +4,13 @@ using Microsoft.AspNetCore.Http;
 using FullPost.Models.DTOs;
 using FullPost.Entities;
 namespace FullPost.Interfaces.Services;
-
 public interface IPostService
 {
-    Task<BaseResponse> CreatePostAsync(int customerId,string caption,List<IFormFile>? mediaFiles = null,List<string>? platforms = null);
+    Task<BaseResponse> CreatePostAsync(CreatePostDto createPostDto);
 
-    Task<BaseResponse> EditPostAsync(string postId, int customerId, string newCaption, List<IFormFile>? newMedia = null);
+    Task<BaseResponse> EditPostAsync(EditPostDto editPostDto);
 
-    Task<BaseResponse> DeletePostAsync(string postId, int customerId);
+    Task<BaseResponse> DeletePostAsync(string postId, int userId);
 
-    Task<PostsResponseModel> GetAllPostsAsync(int customerId, int limit = 5);
+    Task<PostsResponseModel> GetAllPostsAsync(int userId, int limit = 5);
 }

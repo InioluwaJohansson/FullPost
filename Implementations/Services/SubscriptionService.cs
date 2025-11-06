@@ -58,14 +58,14 @@ public class SubscriptionService : ISubscriptionService
         };
     }
 
-    public async Task<BaseResponse> CreatePlanAsync(string name, decimal amount, string interval, string description)
+    public async Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto)
     {
         var payload = new
         {
-            name,
-            amount = (int)(amount * 100), // Paystack expects amount in kobo
-            interval,
-            description
+            name = subscriptionDto.Name,
+            amount = (int)(subscriptionDto.Amount * 100), // Paystack expects amount in kobo
+            interval = subscriptionDto.Interval,
+            description = subscriptionDto.Description
         };
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync("https://api.paystack.co/plan", content);
@@ -79,10 +79,10 @@ public class SubscriptionService : ISubscriptionService
 
         var plan = new SubscriptionPlan
         {
-            Name = name,
-            Price = amount,
-            Interval = interval,
-            Description = description,
+            Name = subscriptionDto.Name,
+            Price = subscriptionDto.Amount,
+            Interval = subscriptionDto.Interval,
+            Description = subscriptionDto.Description,
             PaystackPlanCode = planCode
         };
         await _subscriptionPlanRepo.Create(plan);

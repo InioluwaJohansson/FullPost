@@ -6,11 +6,10 @@ public class Customer: AuditableEntity
 {
     public User User { get; set; }
     public int UserId { get; set; }
-
     public string CustomerId { get; set; } = Guid.NewGuid().ToString().Substring(0, 17);
     public string FirstName { get; set; }
     public string LastName { get; set; }
-
+    public string PictureUrl { get; set; }
     public string GoogleId { get; set; }
     public string GoogleAccessToken { get; set; }
     public string GoogleRefreshToken { get; set; }
@@ -32,8 +31,4 @@ public class Customer: AuditableEntity
     public string InstagramUserId { get; set; }
     public string InstagramUsername { get; set; }
     public DateTime InstagramTokenExpiry { get; set; }
-
-    public string CloudinaryApiKey { get; set; }
-    public string CloudinaryApiSecret { get; set; }
-    public string CloudinaryCloudName { get; set; }
 }

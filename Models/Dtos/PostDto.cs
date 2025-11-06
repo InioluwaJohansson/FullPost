@@ -1,5 +1,19 @@
 namespace FullPost.Models.DTOs;
 
+public class CreatePostDto
+{
+    public int UserId { get; set; }
+    public string Caption { get; set; }
+    public List<IFormFile>? MediaFiles { get; set; }
+    public List<string>? Platforms { get; set; }
+}
+public class EditPostDto
+{
+    public string PostId { get; set; }
+    public int UserId { get; set; }
+    public string NewCaption { get; set; }
+    public List<IFormFile>? NewMediaFiles { get; set; }
+}
 public class GetPostDto
 {
     public string Platform { get; set; }
