@@ -2,7 +2,7 @@
 using FullPost.Entities.Identity;
 namespace FullPost.Entities;
 
-public class Customer: AuditableEntity
+public class Customer : AuditableEntity
 {
     public User User { get; set; }
     public int UserId { get; set; }
@@ -31,4 +31,27 @@ public class Customer: AuditableEntity
     public string InstagramUserId { get; set; }
     public string InstagramUsername { get; set; }
     public DateTime InstagramTokenExpiry { get; set; }
+
+    public string YouTubeAccessToken { get; set; }
+    public string YouTubeRefreshToken { get; set; }
+    public DateTime YouTubeTokenExpiry { get; set; }
+    public string YouTubeChannelId { get; set; }
+    public string YouTubeChannelName { get; set; }
+    public string YouTubeEmail { get; set; }
+    public string YouTubeProfilePicture { get; set; }
+
+    public string TikTokAccessToken { get; set; }
+    public string TikTokRefreshToken { get; set; }
+    public DateTime TikTokTokenExpiry { get; set; }
+    public string TikTokUserId { get; set; }
+    public string TikTokUsername { get; set; }
+
+    public string? LinkedInAccessToken { get; set; }
+    public DateTime? LinkedInTokenExpiry { get; set; }
+    public string? LinkedInUserId { get; set; }
+    public string? LinkedInProfileUrl { get; set; }
+    public string? LinkedInUsername { get; set; }
+
+
+
 }

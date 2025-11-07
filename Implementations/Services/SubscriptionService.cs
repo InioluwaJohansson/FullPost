@@ -14,13 +14,15 @@ public class SubscriptionService : ISubscriptionService
     private readonly ISubscriptionPlanRepo _subscriptionPlanRepo;
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private readonly IUserRepo _userRepo;
+    private readonly IEmailService _emailService;
 
-    public SubscriptionService(ISubscriptionPlanRepo subscriptionPlanRepo, IUserSubscriptionRepo userSubscriptionRepo, IConfiguration config, IUserRepo userRepo)
+    public SubscriptionService(ISubscriptionPlanRepo subscriptionPlanRepo, IUserSubscriptionRepo userSubscriptionRepo, IConfiguration config, IUserRepo userRepo, IEmailService emailService)
     {
         _subscriptionPlanRepo = subscriptionPlanRepo;
         _userSubscriptionRepo = userSubscriptionRepo;
         _userRepo = userRepo;
         _httpClient = new HttpClient();
+        _emailService = emailService;
         _paystackSecretKey = config["Paystack:SecretKey"]!;
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", _paystackSecretKey);
@@ -51,6 +53,8 @@ public class SubscriptionService : ISubscriptionService
             sub.EndDate = DateTime.UtcNow;
             await _userSubscriptionRepo.Update(sub);
         }
+        var user = await _userRepo.Get(u => u.Id == sub.UserId);
+        await _emailService.SendEmailAsync(user.Email, "Subscription Cancelled", "Your subscription has been successfully cancelled.");
         return new BaseResponse()
         {
             Status = true,
@@ -176,7 +180,6 @@ public class SubscriptionService : ISubscriptionService
         var data = json.RootElement.GetProperty("data");
         var subscriptionCode = data.GetProperty("subscription_code").GetString();
         var customerCode = data.GetProperty("customer").GetProperty("customer_code").GetString();
-
         var subscription = new UserSubscription
         {
             UserId = userId,
@@ -186,12 +189,12 @@ public class SubscriptionService : ISubscriptionService
             StartDate = DateTime.UtcNow,
             IsActive = true
         };
-
         await _userSubscriptionRepo.Create(subscription);
+        await _emailService.SendEmailAsync(user.Email, "Subscription Successful", $"You have successfully subscribed to the {plan.Name} plan.");
         return new BaseResponse()
         {
             Status = true,
-            Message = ""
+            Message = "Subscription successful."
         };
     }
 }

@@ -2,21 +2,21 @@ using Tweetinvi;
 using Tweetinvi.Parameters;
 using FullPost.Interfaces.Services;
 using Tweetinvi.Models;
+using FullPost.Models.DTOs;
 namespace FullPost.Implementations.Services;
 public class TwitterService: ITwitterService
 {
-    private readonly string _apiKey;
-    private readonly string _apiSecret;
 
-    public TwitterService(string apiKey, string apiSecret)
+    private readonly TwitterKeys _twitterKeys;
+
+    public TwitterService(IConfiguration config)
     {
-        _apiKey = apiKey;
-        _apiSecret = apiSecret;
+        _twitterKeys = config.GetSection("TwitterKeys").Get<TwitterKeys>();
     }
 
     private TwitterClient CreateClient(string userAccessToken, string userAccessSecret)
     {
-        return new TwitterClient(_apiKey, _apiSecret, userAccessToken, userAccessSecret);
+        return new TwitterClient(_twitterKeys.ApiKey, _twitterKeys.ApiSecret, userAccessToken, userAccessSecret);
     }
 
     public async Task<ITweet> PostTweetAsync(string userAccessToken, string userAccessSecret, string message, List<IFormFile>? mediaFiles = null)

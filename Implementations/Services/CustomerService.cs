@@ -16,11 +16,12 @@ public class CustomerService : ICustomerService
     ICustomerRepo _customerRepo;
     IUserRepo _userRepo;
     private readonly Cloudinary _cloudinary;
-    //private readonly PasswordHasher<string> _passwordHasher = new();
-    CustomerService(ICustomerRepo customerRepo, IUserRepo userRepo, IConfiguration config)
+    private readonly IEmailService _emailService;
+    CustomerService(ICustomerRepo customerRepo, IUserRepo userRepo, IConfiguration config, IEmailService emailService)
     {
         _customerRepo = customerRepo;
         _userRepo = userRepo;
+        _emailService = emailService;
         var cloudSettings = config.GetSection("CloudinarySettings").Get<CloudinarySettings>();
 
         var account = new Account(cloudSettings.CloudName, cloudSettings.ApiKey, cloudSettings.ApiSecret);
@@ -50,7 +51,8 @@ public class CustomerService : ICustomerService
                 GoogleRefreshToken = createCustomerDto.GoogleRefreshToken,
                 GoogleTokenExpiry = createCustomerDto.GoogleTokenExpiry
             };
-            var result = await _customerRepo.Create(customer);
+            await _customerRepo.Create(customer);
+            await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
             return new BaseResponse
             {
                 Status = true,
@@ -76,6 +78,7 @@ public class CustomerService : ICustomerService
             };
         }
         await _customerRepo.Delete(customer);
+        await _emailService.SendEmailAsync(customer.User!.Email, "Account Deleted", "Your account has been successfully deleted.");
         return new BaseResponse
         {
             Status = true,

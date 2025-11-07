@@ -10,15 +10,11 @@ using FullPost.Interfaces.Services;
 namespace FullPost.Implementations.Services;
 public class InstagramService : IInstagramService
 {
-    private readonly string _appId;
-    private readonly string _appSecret;
     private readonly Cloudinary _cloudinary;
     private readonly HttpClient _httpClient;
 
-    public InstagramService(string appId, string appSecret, string cloudName, string cloudApiKey, string cloudApiSecret)
+    public InstagramService(string cloudName, string cloudApiKey, string cloudApiSecret)
     {
-        _appId = appId;
-        _appSecret = appSecret;
         var account = new Account(cloudName, cloudApiKey, cloudApiSecret);
         _cloudinary = new Cloudinary(account);
         _httpClient = new HttpClient();

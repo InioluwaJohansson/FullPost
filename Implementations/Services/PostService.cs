@@ -14,8 +14,9 @@ public class PostService : IPostService
     private readonly ISubscriptionService _subscriptionService;
     private readonly IPostRepo _repository;
     private readonly ICustomerRepo _customerRepository;
+    private readonly IEmailService _emailService;
 
-    public PostService(ITwitterService twitterService, IFacebookService facebookService, IInstagramService instagramService, ISubscriptionService subscriptionService, IPostRepo repository, ICustomerRepo customerRepository)
+    public PostService(ITwitterService twitterService, IFacebookService facebookService, IInstagramService instagramService, ISubscriptionService subscriptionService, IPostRepo repository, ICustomerRepo customerRepository, IEmailService emailService)
     {
         _twitterService = twitterService;
         _facebookService = facebookService;
@@ -23,6 +24,7 @@ public class PostService : IPostService
         _subscriptionService = subscriptionService;
         _repository = repository;
         _customerRepository = customerRepository;
+        _emailService = emailService;
     }
 
     public async Task<BaseResponse> CreatePostAsync(CreatePostDto createPostDto)
@@ -72,6 +74,7 @@ public class PostService : IPostService
                 InstagramPostId = instagramId
             };
             await _repository.Create(post);
+            await _emailService.SendEmailAsync(customer.User!.Email, "New Post Created", "Your post has been successfully created and shared on the selected platforms.");
             return new BaseResponse
             {
                 Status = true,
@@ -135,7 +138,7 @@ public class PostService : IPostService
             post.Caption = editPostDto.NewCaption;
             post.LastModifiedOn = DateTime.UtcNow;
             await _repository.Update(post);
-
+            await _emailService.SendEmailAsync(customer.User!.Email, "Post Edited", "Your post has been successfully edited on the selected platforms.");
             return new BaseResponse
             {
                 Status = true,
@@ -178,7 +181,7 @@ public class PostService : IPostService
                 await _instagramService.DeletePostAsync(customer.InstagramAccessToken!, post.InstagramPostId);
 
             await _repository.Delete(post);
-
+            await _emailService.SendEmailAsync(customer.User!.Email, "Post Deleted", "Your post has been successfully deleted from the selected platforms.");
             return new BaseResponse
             {
                 Status = true,

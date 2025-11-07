@@ -12,17 +12,11 @@ using System.Text.Json;
 namespace FullPost.Implementations.Services;
 public class FacebookService : IFacebookService
 {
-    private readonly string _appId;
-    private readonly string _appSecret;
     private readonly HttpClient _httpClient;
-
-    public FacebookService(string appId, string appSecret)
+    public FacebookService()
     {
-        _appId = appId;
-        _appSecret = appSecret;
         _httpClient = new HttpClient();
     }
-
     public async Task<string> CreatePostAsync(string userAccessToken, string pageId, string message, List<IFormFile>? mediaFiles = null)
     {
         if (mediaFiles == null || mediaFiles.Count == 0)
