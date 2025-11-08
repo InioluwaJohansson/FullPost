@@ -159,7 +159,8 @@ public class CustomerService : ICustomerService
 
     public async Task<BaseResponse> UpdateCustomer(UpdateCustomerDto updateCustomerDto)
     {
-        if (updateCustomerDto != null)
+        var customer = await _customerRepo.GetById(updateCustomerDto.userId);
+        if (updateCustomerDto != null && customer != null)
         {
             string imgUrl = null;
             if (updateCustomerDto.PictureUrl == null || updateCustomerDto.PictureUrl.Length == 0){}
@@ -185,26 +186,11 @@ public class CustomerService : ICustomerService
                     throw new Exception("Cloudinary upload failed: " + uploadResult.Error?.Message);
                 }
             }
-            var customer = await _customerRepo.GetById(updateCustomerDto.userId);
             customer.User.Email = updateCustomerDto.Email ?? customer.User.Email;
             customer.FirstName = updateCustomerDto.FirstName ?? customer.FirstName;
             customer.LastName = updateCustomerDto.LastName ?? customer.LastName;
             customer.User.UserName = updateCustomerDto.UserName ?? customer.User.UserName;
             customer.PictureUrl = imgUrl ?? customer.PictureUrl;
-            customer.TwitterUsername = updateCustomerDto.TwitterUsername ?? customer.TwitterUsername;
-            customer.TwitterUserId = updateCustomerDto.TwitterUserId ?? customer.TwitterUserId;
-            customer.TwitterAccessToken = updateCustomerDto.TwitterAccessToken ?? customer.TwitterAccessToken;
-            customer.TwitterAccessSecret = updateCustomerDto.TwitterAccessSecret ?? customer.TwitterAccessSecret;
-            customer.FacebookAccessToken = updateCustomerDto.FacebookAccessToken ?? customer.FacebookAccessToken;
-            customer.FacebookPageId = updateCustomerDto.FacebookPageId ?? customer.FacebookPageId;
-            customer.FacebookUserId = updateCustomerDto.FacebookUserId ?? customer.FacebookUserId;
-            customer.FacebookPageName = updateCustomerDto.FacebookPageName ?? customer.FacebookPageName;
-            customer.InstagramAccessToken = updateCustomerDto.InstagramAccessToken ?? customer.InstagramAccessToken;
-            customer.InstagramUserId = updateCustomerDto.InstagramUserId ?? customer.InstagramUserId;
-            customer.InstagramUsername = updateCustomerDto.InstagramUsername ?? customer.InstagramUsername;
-            customer.TwitterTokenExpiry = updateCustomerDto.TwitterTokenExpiry ?? customer.TwitterTokenExpiry;
-            customer.InstagramTokenExpiry = updateCustomerDto.InstagramTokenExpiry ?? customer.InstagramTokenExpiry;
-            customer.FacebookTokenExpiry = updateCustomerDto.FacebookTokenExpiry ?? customer.FacebookTokenExpiry;
             await _customerRepo.Update(customer);
             return new BaseResponse
             {

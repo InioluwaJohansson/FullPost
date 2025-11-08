@@ -20,22 +20,6 @@ public class UpdateCustomerDto
     public string UserName { get; set; }
     public string Email { get; set; }
     public IFormFile PictureUrl { get; set; }
-    public string TwitterAccessToken { get; set; }
-    public string TwitterAccessSecret { get; set; }
-    public string TwitterUsername { get; set; }
-    public string TwitterUserId { get; set; }
-    public DateTime? TwitterTokenExpiry { get; set; }
-
-    public string FacebookAccessToken { get; set; }
-    public string FacebookPageId { get; set; }
-    public string FacebookUserId { get; set; }
-    public string FacebookPageName { get; set; }
-    public DateTime? FacebookTokenExpiry { get; set; }
-
-    public string InstagramAccessToken { get; set; }
-    public string InstagramUserId { get; set; }
-    public string InstagramUsername { get; set; }
-    public DateTime? InstagramTokenExpiry { get; set; }
 }
 public class GetCustomerDto
 {
@@ -46,9 +30,13 @@ public class GetCustomerDto
     public string UserName { get; set; }
     public string Email { get; set; }
     public string PictureUrl { get; set; }
+    public bool GoogleConnected { get; set; }
     public bool TwitterConnected { get; set; }
     public bool FacebookConnected { get; set; }
     public bool InstagramConnected { get; set; }
+    public bool YouTubeConnected { get; set; }
+    public bool TikTokConnected { get; set; }
+    public bool LinkedInConnected { get; set; }
 }
 public class CustomerResponse : BaseResponse
 {
