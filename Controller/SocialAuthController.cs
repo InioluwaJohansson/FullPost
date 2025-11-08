@@ -15,8 +15,8 @@ using Tweetinvi.Credentials.Models;
 namespace FullPost.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-public class SocialAuthController : ControllerBase
+[Route("FullPost/[controller]")]
+public class SocialAuthController : Controller
 {
     private readonly IConfiguration _config;
     private readonly ICustomerRepo _customerRepository;

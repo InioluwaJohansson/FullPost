@@ -19,8 +19,21 @@ public class EmailSettings
     public string SenderEmail { get; set; }
     public string AppPassword { get; set; }
 }
+public class GoogleLoginRequest
+{
+    public string Email { get; set; }
+    public string GoogleAccessToken { get; set; }
+    public DateTime GoogleTokenExpiry { get; set; }
+}
+public class ResetPasswordRequest
+{
+    public string Email { get; set; }
+    public string Token { get; set; }
+    public string NewPassword { get; set; }
+}
 public class BaseResponse
 {
+    public int UserId { get; set; }
     public string Message { get; set; }
     public bool Status { get; set; }
 }

@@ -6,6 +6,7 @@ public class CreateCustomerDto
     public string Password { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
+    public string PictureUrl { get; set; }
     public string GoogleId { get; set; }
     public string GoogleAccessToken { get; set; }
     public string GoogleRefreshToken { get; set; }
