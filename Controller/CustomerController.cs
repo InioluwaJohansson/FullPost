@@ -6,6 +6,7 @@ using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
 using System.Text.Json;
 using Google.Apis.Auth;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FullPost.Controllers;
 
@@ -32,7 +33,6 @@ public class CustomerController : Controller
             $"&response_type=code&scope={scope}&access_type=offline&prompt=consent";
         return Redirect(googleAuthUrl);
     }
-
     [HttpGet("google/signup/callback")]
     public async Task<IActionResult> GoogleSignUpCallback(string code)
     {
@@ -93,10 +93,13 @@ public class CustomerController : Controller
         }
         return BadRequest(customer);
     }
-
+    [Authorize]
     [HttpPut("UpdateCustomer")]
     public async Task<IActionResult> UpdateCustomer([FromForm] UpdateCustomerDto updateCustomerDto)
     {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Unauthorized();
+
         var customer = await _customerService.UpdateCustomer(updateCustomerDto);
         if (customer.Status == true)
         {
@@ -104,10 +107,13 @@ public class CustomerController : Controller
         }
         return BadRequest(customer);
     }
-
+    [Authorize]
     [HttpGet("GetCustomerById")]
     public async Task<IActionResult> GetCustomerById(int userId)
     {
+        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (user == null) return Unauthorized();
+
         var customer = await _customerService.GetCustomerById(userId);
         if (customer.Status == true)
         {
@@ -115,6 +121,7 @@ public class CustomerController : Controller
         }
         return BadRequest(customer);
     }
+    [Authorize]
     [HttpPut("DeleteAccount")]
     public async Task<IActionResult> DeleteAccount(int userId)
     {

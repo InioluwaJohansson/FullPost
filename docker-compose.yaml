@@ -1,0 +1,46 @@
+networks:
+  app-network:
+
+services:
+  db:
+    container_name: db
+    image: mysql:8.0
+    networks:
+      - app-network
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: fullpost
+      MYSQL_DATABASE: FullPostDB
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  migrator:
+    build: 
+      context: ../FullPost
+      dockerfile: Migrator.dockerfile
+    depends_on:
+      - db
+    networks:
+      - app-network
+    environment:
+      - ConnectionStrings__Default=server=db;port=3306;user=root;password=fullpost;database=FullPostDB
+
+  backend:
+    build: ../FullPost
+    networks:
+      - app-network
+    depends_on:
+      - migrator
+    ports:
+      - "7275:7275"
+      - "5050:5050"
+    environment:
+      - ConnectionStrings__FullPostContext=server=db;port=3306;user=root;password=fullpost;database=FullPostDB
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=fullpost
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/https.pfx
+    volumes:
+      - ./https.pfx:/https/https.pfx
+
+volumes:
+  dbdata:
