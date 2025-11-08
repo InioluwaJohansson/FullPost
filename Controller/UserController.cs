@@ -9,8 +9,8 @@ using FullPost.Authentication;
 namespace FullPost.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
+[Route("FullPost/[controller]")]
+public class AuthController : Controller
 {
     private readonly IUserService _userService;
     private readonly IConfiguration _config;

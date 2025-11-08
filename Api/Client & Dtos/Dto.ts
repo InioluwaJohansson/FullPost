@@ -1,3 +1,5 @@
+import { createCustomer } from "../../Api_Url";
+
 export interface BaseResponse {
   success: boolean;
   message: string;
@@ -107,3 +109,4 @@ export interface LoginResponse extends BaseResponse {
   email: string;
   token: string;
 }
+

@@ -1,6 +1,6 @@
-import apiClient from "./Client & Dtos/ApiClient";
-import type { CreateCustomerDto, LoginResponse } from "../types/dto";
-
+import apiClient from "../Client & Dtos/ApiClient";
+import type { CreateCustomerDto, LoginResponse } from "../Client & Dtos/Dto";
+import * as dto from "../Client & Dtos/Dto";
 export const authService = {
   signup: async (data: CreateCustomerDto): Promise<LoginResponse> => {
     const response = await apiClient.post<LoginResponse>("/auth/signup", data);
