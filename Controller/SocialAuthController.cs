@@ -275,14 +275,34 @@ public class SocialAuthController : ControllerBase
             { "grant_type", "authorization_code" }
         };
         using var http = new HttpClient();
-        var res = await http.PostAsync(tokenUrl, new FormUrlEncodedContent(data));
-        var json = await res.Content.ReadAsStringAsync();
-        var token = JsonDocument.Parse(json).RootElement.GetProperty("data").GetProperty("access_token").GetString();
-        var customer = await _customerRepository.Get(x => x.UserId == userId);
-        customer.TikTokAccessToken = token;
-        await _customerRepository.Update(customer);
+        var response = await http.PostAsync(tokenUrl, new FormUrlEncodedContent(data));
+        var json = await response.Content.ReadAsStringAsync();
 
+        if (!response.IsSuccessStatusCode)
+        {
+            return BadRequest($"Failed to exchange TikTok code. Response: {json}");
+        }
+        var root = JsonDocument.Parse(json).RootElement;
+        if (!root.TryGetProperty("data", out var dataElement))
+        {
+            return BadRequest("Invalid TikTok API response: missing data field.");
+        }
+        var accessToken = dataElement.GetProperty("access_token").GetString();
+        var refreshToken = dataElement.GetProperty("refresh_token").GetString();
+        var expiresIn = dataElement.GetProperty("expires_in").GetInt32();
+        var openId = dataElement.GetProperty("open_id").GetString();
+        var customer = await _customerRepository.Get(x => x.UserId == userId);
+        if (customer == null)
+        {
+            return NotFound("User not found.");
+        }
+        customer.TikTokAccessToken = accessToken;
+        customer.TikTokRefreshToken = refreshToken;
+        customer.TikTokTokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn);
+        customer.TikTokUserId = openId;
+        await _customerRepository.Update(customer);
         return Redirect($"{_config["App:FrontendUrl"]}/dashboard?connected=tiktok");
     }
+
 
 }

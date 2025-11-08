@@ -4,10 +4,12 @@ using Google.Apis.Upload;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using FullPost.Interfaces.Services;
+
 namespace FullPost.Implementations.Services;
 public class YouTubeService : IYouTubeService
 {
     private readonly IConfiguration _config;
+
     public YouTubeService(IConfiguration config)
     {
         _config = config;
@@ -15,17 +17,17 @@ public class YouTubeService : IYouTubeService
 
     private Google.Apis.YouTube.v3.YouTubeService CreateYouTubeClient(string accessToken)
     {
-        var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromAccessToken(accessToken);
+        var credential = GoogleCredential.FromAccessToken(accessToken);
 
-        return new Google.Apis.YouTube.v3.YouTubeService(new Google.Apis.Services.BaseClientService.Initializer
+        return new Google.Apis.YouTube.v3.YouTubeService(new BaseClientService.Initializer
         {
             HttpClientInitializer = credential,
             ApplicationName = _config["App:Name"]
         });
     }
 
-
-    public async Task<string> UploadVideoAsync(string accessToken, IFormFile videoFile, string title, string description, string[]? tags = null, string privacy = "private")
+    // ✅ CREATE — Upload a new YouTube video
+    public async Task<string> CreatePostAsync(string accessToken, IFormFile videoFile, string title, string description, string[]? tags = null, string privacy = "private")
     {
         var youtube = CreateYouTubeClient(accessToken);
 
@@ -37,7 +39,7 @@ public class YouTubeService : IYouTubeService
                 Title = title,
                 Description = description,
                 Tags = tags,
-                CategoryId = "22" // 22 = People & Blogs
+                CategoryId = "22" // "People & Blogs" by default
             },
             Status = new VideoStatus { PrivacyStatus = privacy }
         };
@@ -46,19 +48,45 @@ public class YouTubeService : IYouTubeService
         var uploadProgress = await videosInsertRequest.UploadAsync();
 
         if (uploadProgress.Status == UploadStatus.Completed)
-            return videosInsertRequest.ResponseBody.Id;
-        else
-            throw new Exception($"YouTube upload failed: {uploadProgress.Exception?.Message}");
+            return videosInsertRequest.ResponseBody.Id ?? throw new Exception("Upload failed: no video ID returned.");
+
+        throw new Exception($"YouTube upload failed: {uploadProgress.Exception?.Message}");
     }
 
-    public async Task<bool> DeleteVideoAsync(string accessToken, string videoId)
+    // ✅ EDIT — Update video title, description, tags, privacy, etc.
+    public async Task<bool> EditPostAsync(string accessToken, string videoId, string newTitle, string newDescription, string[]? newTags = null, string newPrivacy = "private")
+    {
+        var youtube = CreateYouTubeClient(accessToken);
+
+        var getRequest = youtube.Videos.List("snippet,status");
+        getRequest.Id = videoId;
+        var response = await getRequest.ExecuteAsync();
+        var video = response.Items.FirstOrDefault();
+
+        if (video == null)
+            throw new Exception("Video not found.");
+
+        video.Snippet.Title = newTitle;
+        video.Snippet.Description = newDescription;
+        video.Snippet.Tags = newTags;
+        video.Status.PrivacyStatus = newPrivacy;
+
+        var updateRequest = youtube.Videos.Update(video, "snippet,status");
+        await updateRequest.ExecuteAsync();
+
+        return true;
+    }
+
+    // ✅ DELETE — Remove a YouTube video
+    public async Task<bool> DeletePostAsync(string accessToken, string videoId)
     {
         var youtube = CreateYouTubeClient(accessToken);
         await youtube.Videos.Delete(videoId).ExecuteAsync();
         return true;
     }
 
-    public async Task<Video?> GetVideoAsync(string accessToken, string videoId)
+    // ✅ GET SINGLE VIDEO — Fetch one post
+    public async Task<Video?> GetPostAsync(string accessToken, string videoId)
     {
         var youtube = CreateYouTubeClient(accessToken);
         var request = youtube.Videos.List("snippet,statistics,status");
@@ -68,31 +96,28 @@ public class YouTubeService : IYouTubeService
         return response.Items.FirstOrDefault();
     }
 
-    public async Task<IList<Video>> GetUserVideosAsync(string accessToken, string channelId)
+    // ✅ GET ALL USER VIDEOS — Fetch all uploaded posts
+    public async Task<IList<Video>> GetAllPostsAsync(string accessToken, string channelId, int limit = 10)
     {
         var youtube = CreateYouTubeClient(accessToken);
 
         var request = youtube.Search.List("snippet");
         request.ChannelId = channelId;
-        request.MaxResults = 10;
+        request.MaxResults = limit;
         request.Type = "video";
 
         var response = await request.ExecuteAsync();
 
-        var videos = response.Items
-            .Select(i => new Video
+        return response.Items.Select(i => new Video
+        {
+            Id = i.Id.VideoId,
+            Snippet = new VideoSnippet
             {
-                Id = i.Id.VideoId, // ✅ Use the string video ID
-                Snippet = new Google.Apis.YouTube.v3.Data.VideoSnippet
-                {
-                    Title = i.Snippet.Title,
-                    Description = i.Snippet.Description,
-                    Thumbnails = i.Snippet.Thumbnails,
-                    PublishedAt = i.Snippet.PublishedAt
-                }
-            })
-            .ToList();
-
-        return videos;
+                Title = i.Snippet.Title,
+                Description = i.Snippet.Description,
+                Thumbnails = i.Snippet.Thumbnails,
+                PublishedAt = i.Snippet.PublishedAt
+            }
+        }).ToList();
     }
 }

@@ -25,5 +25,5 @@ public class GetPostDto
 }
 public class PostsResponseModel : BaseResponse
 {
-    public ICollection<GetPostDto> Data { get; set; } = new HashSet<GetPostDto>();
+    public new Dictionary<string, object> Data { get; set; } = new Dictionary<string, object>();
 }
