@@ -147,7 +147,11 @@ public class CustomerService : ICustomerService
             PictureUrl = customer.PictureUrl,
             TwitterConnected = customer.TwitterAccessToken != null,
             FacebookConnected = customer.FacebookAccessToken != null,
-            InstagramConnected = customer.InstagramAccessToken != null
+            InstagramConnected = customer.InstagramAccessToken != null,
+            TikTokConnected = customer.TikTokAccessToken != null,
+            LinkedInConnected = customer.LinkedInAccessToken != null,
+            YouTubeConnected = customer.YouTubeAccessToken != null,
+            GoogleConnected = customer.GoogleAccessToken != null,
         };
 
         return new CustomerResponse
