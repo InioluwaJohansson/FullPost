@@ -10,8 +10,6 @@ public class FullPostContext: DbContext
     {
     }
     public DbSet<User> Users { get; set; }
-    public DbSet<Role> Roles { get; set; }
-    public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<Customer> Customers { get; set; }
     public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
     public DbSet<UserSubscription> UserSubscriptions { get; set; }
