@@ -7,6 +7,8 @@ using FullPost.Models.DTOs;
 using FullPost.Interfaces.Services;
 using FullPost.Entities;
 using FullPost.Interfaces.Respositories;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FullPost.Controllers;
 
@@ -21,30 +23,43 @@ public class PostController : Controller
         _postService = postService;
     }
 
+    [Authorize]
     [HttpPost("create")]
     public async Task<IActionResult> CreatePost([FromForm] CreatePostDto request)
     {
+        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (user == null) return Unauthorized();
+        
         var result = await _postService.CreatePostAsync(request);
         return result.Status ? Ok(result) : BadRequest(result);
     }
-
+    [Authorize]
     [HttpPut("edit/{postId}")]
     public async Task<IActionResult> EditPost([FromForm] EditPostDto request)
     {
+        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (user == null) return Unauthorized();
+
         var result = await _postService.EditPostAsync(request);
         return result.Status ? Ok(result) : BadRequest(result);
     }
-
+    [Authorize]
     [HttpDelete("delete/{postId}")]
     public async Task<IActionResult> DeletePost(string postId, int userId)
     {
+        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (user == null) return Unauthorized();
+
         var result = await _postService.DeletePostAsync(postId, userId);
         return result.Status ? Ok(result) : BadRequest(result);
     }
-
-    [HttpGet("all/{userId}")]
+    [Authorize]
+    [HttpGet("allposts/{userId}")]
     public async Task<IActionResult> GetAllPosts(int userId)
     {
+        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (user == null) return Unauthorized();
+        
         var result = await _postService.GetAllPostsAsync(userId);
         return Ok(result);
     }

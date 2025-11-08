@@ -4,6 +4,7 @@ using FullPost.Interfaces.Services;
 using System.Text.Json;
 using Google.Apis.Auth;
 using FullPost.Models.DTOs;
+using FullPost.Authentication;
 
 namespace FullPost.Controllers;
 
@@ -13,11 +14,13 @@ public class AuthController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly IConfiguration _config;
+    private readonly IJWTAuthentication _jwtAuthentication;
 
-    public AuthController(IUserService userService, IConfiguration config)
+    public AuthController(IUserService userService, IConfiguration config, IJWTAuthentication jwtAuthentication)
     {
         _userService = userService;
         _config = config;
+        _jwtAuthentication = jwtAuthentication;
     }
 
     [HttpGet("login")]
@@ -26,7 +29,7 @@ public class AuthController : ControllerBase
         var login = await _userService.Login(email, password);
         if (login.Status == true)
         {
-            login.Token = "";
+            login.Token = _jwtAuthentication.GenerateToken(login);
             return Ok(login);
         }
         return BadRequest(login);
@@ -91,7 +94,7 @@ public class AuthController : ControllerBase
         {
             return Redirect($"{_config["App:FrontendUrl"]}/login?error=user_not_found");
         }
-        loginResponse.Token = "";
+        loginResponse.Token = _jwtAuthentication.GenerateToken(loginResponse);
         return Ok(loginResponse);
     }
     [HttpGet("passwordReset")]

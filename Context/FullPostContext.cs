@@ -2,8 +2,6 @@
 using Microsoft.Extensions.Options;
 using FullPost.Entities;
 using FullPost.Entities.Identity;
-using FullPost.Entities;
-
 namespace FullPost.Context;
 
 public class FullPostContext: DbContext
