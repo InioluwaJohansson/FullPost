@@ -13,8 +13,8 @@ namespace FullPost.Implementations.Services;
 
 public class CustomerService : ICustomerService
 {
-    ICustomerRepo _customerRepo;
-    IUserRepo _userRepo;
+    private readonly ICustomerRepo _customerRepo;
+    private readonly IUserRepo _userRepo;
     private readonly Cloudinary _cloudinary;
     private readonly IEmailService _emailService;
     CustomerService(ICustomerRepo customerRepo, IUserRepo userRepo, IConfiguration config, IEmailService emailService)
@@ -55,6 +55,7 @@ public class CustomerService : ICustomerService
             await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
             return new BaseResponse
             {
+                UserId = getUser.Id,
                 Status = true,
                 Message = "Account Created!"
             };
@@ -65,7 +66,44 @@ public class CustomerService : ICustomerService
             Message = "Account Already Exists!"
         };
     }
-
+    public async Task<BaseResponse> CreateCustomerWithGoogle(CreateCustomerDto createCustomerDto)
+    {
+        var checkMail = await _userRepo.Get(x => x.Email.Equals(createCustomerDto.Email));
+        if (createCustomerDto != null && checkMail == null)
+        {
+            var user = new User()
+            {
+                Email = createCustomerDto.Email,
+                Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()) ?? ""
+            };
+            await _userRepo.Create(user);
+            var getUser = await _userRepo.Get(x => x.Email.Equals(createCustomerDto.Email));
+            var customer = new Customer
+            {
+                UserId = getUser.Id,
+                FirstName = createCustomerDto.FirstName ?? "",
+                LastName = createCustomerDto.LastName ?? "",
+                PictureUrl = createCustomerDto.PictureUrl ?? "",
+                GoogleId = createCustomerDto.GoogleId,
+                GoogleAccessToken = createCustomerDto.GoogleAccessToken,
+                GoogleRefreshToken = createCustomerDto.GoogleRefreshToken,
+                GoogleTokenExpiry = createCustomerDto.GoogleTokenExpiry
+            };
+            await _customerRepo.Create(customer);
+            await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
+            return new BaseResponse
+            {
+                UserId = getUser.Id,
+                Status = true,
+                Message = "Account Created!"
+            };
+        }
+        return new BaseResponse
+        {
+            Status = false,
+            Message = "Account Already Exists!"
+        };
+    }
     public async Task<BaseResponse> DeleteAccount(int userId)
     {
         var customer = await _customerRepo.GetById(userId);

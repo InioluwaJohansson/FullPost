@@ -26,7 +26,6 @@ public class YouTubeService : IYouTubeService
         });
     }
 
-    // ✅ CREATE — Upload a new YouTube video
     public async Task<string> CreatePostAsync(string accessToken, IFormFile videoFile, string title, string description, string[]? tags = null, string privacy = "private")
     {
         var youtube = CreateYouTubeClient(accessToken);
@@ -39,7 +38,7 @@ public class YouTubeService : IYouTubeService
                 Title = title,
                 Description = description,
                 Tags = tags,
-                CategoryId = "22" // "People & Blogs" by default
+                CategoryId = "22"
             },
             Status = new VideoStatus { PrivacyStatus = privacy }
         };
@@ -53,7 +52,6 @@ public class YouTubeService : IYouTubeService
         throw new Exception($"YouTube upload failed: {uploadProgress.Exception?.Message}");
     }
 
-    // ✅ EDIT — Update video title, description, tags, privacy, etc.
     public async Task<bool> EditPostAsync(string accessToken, string videoId, string newTitle, string newDescription, string[]? newTags = null, string newPrivacy = "private")
     {
         var youtube = CreateYouTubeClient(accessToken);
@@ -77,7 +75,6 @@ public class YouTubeService : IYouTubeService
         return true;
     }
 
-    // ✅ DELETE — Remove a YouTube video
     public async Task<bool> DeletePostAsync(string accessToken, string videoId)
     {
         var youtube = CreateYouTubeClient(accessToken);
@@ -85,7 +82,6 @@ public class YouTubeService : IYouTubeService
         return true;
     }
 
-    // ✅ GET SINGLE VIDEO — Fetch one post
     public async Task<Video?> GetPostAsync(string accessToken, string videoId)
     {
         var youtube = CreateYouTubeClient(accessToken);
@@ -96,7 +92,6 @@ public class YouTubeService : IYouTubeService
         return response.Items.FirstOrDefault();
     }
 
-    // ✅ GET ALL USER VIDEOS — Fetch all uploaded posts
     public async Task<IList<Video>> GetAllPostsAsync(string accessToken, string channelId, int limit = 10)
     {
         var youtube = CreateYouTubeClient(accessToken);
