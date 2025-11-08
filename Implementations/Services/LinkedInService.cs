@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using FullPost.Interfaces.Services;
+
 namespace FullPost.Implementations.Services;
 public class LinkedInService : ILinkedInService
 {
@@ -22,9 +23,10 @@ public class LinkedInService : ILinkedInService
 
     public async Task<JsonElement> GetUserProfileAsync(string accessToken)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, $"{LinkedInApiBase}me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{LinkedInApiBase}me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))");
 
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         var response = await _httpClient.SendAsync(request);
         var json = await response.Content.ReadAsStringAsync();
 
@@ -36,9 +38,10 @@ public class LinkedInService : ILinkedInService
 
     public async Task<JsonElement> GetUserEmailAsync(string accessToken)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, $"{LinkedInApiBase}emailAddress?q=members&projection=(elements*(handle~))");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{LinkedInApiBase}emailAddress?q=members&projection=(elements*(handle~))");
 
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         var response = await _httpClient.SendAsync(request);
         var json = await response.Content.ReadAsStringAsync();
 
@@ -48,7 +51,7 @@ public class LinkedInService : ILinkedInService
         return JsonDocument.Parse(json).RootElement;
     }
 
-    public async Task<bool> PostContentAsync(string accessToken, string linkedInUserId, string message, string? mediaUrl = null)
+    public async Task<bool> CreatePostAsync(string accessToken, string linkedInUserId, string message, string? mediaUrl = null)
     {
         var postData = new
         {
@@ -88,6 +91,61 @@ public class LinkedInService : ILinkedInService
 
         if (!response.IsSuccessStatusCode)
             throw new Exception($"LinkedIn post failed: {result}");
+
+        return true;
+    }
+
+    public async Task<JsonElement> GetAllPostsAsync(string accessToken, string linkedInUserId)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{LinkedInApiBase}ugcPosts?q=authors&authors=List(urn:li:person:{linkedInUserId})");
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var response = await _httpClient.SendAsync(request);
+        var json = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"LinkedIn posts fetch failed: {json}");
+
+        return JsonDocument.Parse(json).RootElement;
+    }
+
+    public async Task<bool> EditPostAsync(string accessToken, string postUrn, string newMessage)
+    {
+        var updateData = new
+        {
+            specificContent = new
+            {
+                @namespace = "com.linkedin.ugc.ShareContent",
+                shareCommentary = new { text = newMessage }
+            }
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Put, $"{LinkedInApiBase}ugcPosts/{postUrn}")
+        {
+            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", accessToken) },
+            Content = new StringContent(JsonSerializer.Serialize(updateData), Encoding.UTF8, "application/json")
+        };
+
+        var response = await _httpClient.SendAsync(request);
+        var result = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"LinkedIn edit failed: {result}");
+
+        return true;
+    }
+
+    public async Task<bool> DeletePostAsync(string accessToken, string postUrn)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"{LinkedInApiBase}ugcPosts/{postUrn}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await _httpClient.SendAsync(request);
+        var result = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"LinkedIn delete failed: {result}");
 
         return true;
     }
