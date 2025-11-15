@@ -1,5 +1,3 @@
-import { createCustomer } from "../../Api_Url";
-
 export interface BaseResponse {
   success: boolean;
   message: string;
@@ -41,6 +39,10 @@ export interface GetCustomerDto {
   youTubeConnected: boolean;
   tikTokConnected: boolean;
   linkedInConnected: boolean;
+}
+
+export interface CustomerResponse extends BaseResponse {
+  data: GetCustomerDto;
 }
 
 export interface CreatePostDto {

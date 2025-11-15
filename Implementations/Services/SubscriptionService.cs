@@ -6,7 +6,7 @@ using FullPost.Implementations.Respositories;
 using FullPost.Interfaces.Respositories;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
-
+namespace FullPost.Implementations.Services;
 public class SubscriptionService : ISubscriptionService
 {
     private readonly HttpClient _httpClient;
@@ -24,14 +24,14 @@ public class SubscriptionService : ISubscriptionService
         _httpClient = new HttpClient();
         _emailService = emailService;
         _paystackSecretKey = config["Paystack:SecretKey"]!;
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", _paystackSecretKey);
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _paystackSecretKey);
     }
-    public async Task<bool> CheckUserSubscriptionStatus(int userId)
+    public async Task<(bool, string)> CheckUserSubscriptionStatus(int userId)
     {
         var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == userId);
-        if (userSubscription != null && userSubscription.LastOrDefault().EndDate < DateTime.UtcNow) return true;
-        else return false;
+        var subscription = await _subscriptionPlanRepo.Get(x => x.Id == userSubscription.LastOrDefault().PlanId);
+        if (userSubscription != null && subscription != null && userSubscription.LastOrDefault().EndDate > DateTime.UtcNow) return (true,subscription.NoOfPosts);
+        else return (false, null);
     }
     public async Task<BaseResponse> CancelSubscriptionAsync(string subscriptionCode)
     {
@@ -68,7 +68,7 @@ public class SubscriptionService : ISubscriptionService
         {
             name = subscriptionDto.Name,
             amount = (int)(subscriptionDto.Amount * 100), // Paystack expects amount in kobo
-            interval = subscriptionDto.Interval,
+            interval = subscriptionDto.Interval.ToString(),
             description = subscriptionDto.Description
         };
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
@@ -109,6 +109,7 @@ public class SubscriptionService : ISubscriptionService
                     Name = x.Name,
                     Price = x.Price,
                     Interval = x.Interval,
+                    NoOfPosts = x.NoOfPosts,
                     Description = x.Description
                 }).ToList(),
                 Status = true
@@ -135,6 +136,8 @@ public class SubscriptionService : ISubscriptionService
                     EndDate = x.EndDate,
                     PaystackCustomerCode = x.PaystackCustomerCode,
                     PaystackSubscriptionCode = x.PaystackSubscriptionCode,
+                    IsActive = x.IsActive,
+                    NoOfPostsThisMonth = x.NoOfPostsThisMonth,
                     Plan = new SubscriptionDto()
                     {
                         Name = x.Plan.Name,
@@ -150,7 +153,41 @@ public class SubscriptionService : ISubscriptionService
             Status = false
         };
     }
-
+    public async Task AutoSubscribeSubscription()
+    {
+        var users = await _userRepo.GetAll();
+        if (users != null)
+        {
+            foreach (var user in users.Where(x => x.AutoSubscribe == true))
+            {
+                var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == user.Id);
+                if(userSubscription != null)
+                {
+                    var plan = await _subscriptionPlanRepo.GetAll();
+                    if(plan != null)
+                    {
+                        if(userSubscription.LastOrDefault().EndDate < DateTime.UtcNow) await SubscribeUserAsync(user.Id, userSubscription.LastOrDefault().PlanId);
+                    } 
+                }
+            }
+            foreach (var user in users.Where(x => x.AutoSubscribe == false))
+            {
+                var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == user.Id);
+                if(userSubscription != null)
+                {
+                    var plan = await _subscriptionPlanRepo.Get(x => x.Name == "Basic");
+                    if(plan != null)
+                    {
+                        if(userSubscription.LastOrDefault().EndDate <= DateTime.UtcNow) await SubscribeUserAsync(user.Id, plan.Id);
+                    } 
+                }
+            }
+        }
+        else
+        {
+            
+        }
+    }
     public async Task<BaseResponse> SubscribeUserAsync(int userId, int planId)
     {
         var plan = await _subscriptionPlanRepo.Get(p => p.Id == planId);
@@ -187,6 +224,7 @@ public class SubscriptionService : ISubscriptionService
             PaystackSubscriptionCode = subscriptionCode,
             PaystackCustomerCode = customerCode,
             StartDate = DateTime.UtcNow,
+            EndDate = DateTime.UtcNow.AddDays(plan.Interval),
             IsActive = true
         };
         await _userSubscriptionRepo.Create(subscription);

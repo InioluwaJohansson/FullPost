@@ -3,47 +3,56 @@ using System.Net.Mail;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
 using Microsoft.Extensions.Options;
-
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Gmail.v1;
+using Google.Apis.Services;
+using Google.Apis.Util.Store;
+using MimeKit;
+using MailKit.Net.Smtp;
 namespace FullPost.Implementations.Services;
 
 public class EmailService : IEmailService
 {
-    private readonly EmailSettings _emailSettings;
+    private readonly IConfiguration _config;
 
-    public EmailService(IOptions<EmailSettings> emailSettings)
+    public EmailService(IConfiguration config)
     {
-        _emailSettings = emailSettings.Value;
+        _config = config;
     }
 
-    public async Task<bool> SendEmailAsync(string toEmail, string subject, string body, bool isHtml = true)
+    public async Task<bool> SendEmailAsync(string to, string subject, string body, bool isHtml = true)
     {
-        try
+        var clientId = _config["Google:ClientId"];
+        var clientSecret = _config["Google:ClientSecret"];
+        var refreshToken = _config["Google:RefreshToken"];
+
+        var credential = GoogleCredential.FromAccessToken(refreshToken)
+            .CreateScoped(GmailService.Scope.GmailSend)
+            .UnderlyingCredential as UserCredential;
+
+        var service = new GmailService(new BaseClientService.Initializer()
         {
-            using var smtp = new SmtpClient
-            {
-                Host = _emailSettings.SmtpServer,
-                Port = _emailSettings.Port,
-                EnableSsl = true,
-                Credentials = new NetworkCredential(_emailSettings.SenderEmail, _emailSettings.AppPassword)
-            };
+            HttpClientInitializer = credential,
+            ApplicationName = "FullPost"
+        });
 
-            using var message = new MailMessage
-            {
-                From = new MailAddress(_emailSettings.SenderEmail, _emailSettings.SenderName),
-                Subject = subject,
-                Body = body,
-                IsBodyHtml = isHtml
-            };
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress("FullPost", "inioluwa.makinde10@gmail.com"));
+        message.To.Add(MailboxAddress.Parse(to));
+        message.Subject = subject;
+        message.Body = new TextPart("html") { Text = body };
 
-            message.To.Add(toEmail);
+        using var ms = new MemoryStream();
+        await message.WriteToAsync(ms);
+        var encodedMessage = Convert.ToBase64String(ms.ToArray())
+            .Replace('+', '-').Replace('/', '_').Replace("=", "");
 
-            await smtp.SendMailAsync(message);
-            return true;
-        }
-        catch (Exception ex)
+        var gmailMessage = new Google.Apis.Gmail.v1.Data.Message
         {
-            Console.WriteLine($"Email send failed: {ex.Message}");
-            return false;
-        }
+            Raw = encodedMessage
+        };
+
+        await service.Users.Messages.Send(gmailMessage, "me").ExecuteAsync();
+        return true;
     }
 }

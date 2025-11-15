@@ -3,7 +3,8 @@ public class CreateSubscriptionDto
 {
     public string Name { get; set; } = default!;
     public decimal Amount { get; set; }
-    public string Interval { get; set; } = default!;
+    public int Interval { get; set; }
+    public string? NoOfPosts { get; set; }
     public string? Description { get; set; }
 }
 public class SubscriptionDto
@@ -11,7 +12,8 @@ public class SubscriptionDto
     public int Id { get; set; }
     public string Name { get; set; } = default!;
     public decimal Price { get; set; }
-    public string Interval { get; set; } = default!;
+    public int Interval { get; set; }
+    public string? NoOfPosts { get; set; }
     public string? Description { get; set; }
 }
 public class UserSubscriptionDto
@@ -21,6 +23,7 @@ public class UserSubscriptionDto
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public bool IsActive { get; set; }
+    public int NoOfPostsThisMonth { get; set; }
     public string? PaystackSubscriptionCode { get; set; }
     public string? PaystackCustomerCode { get; set; }
 }

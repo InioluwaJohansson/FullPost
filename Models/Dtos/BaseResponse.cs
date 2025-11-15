@@ -11,6 +11,14 @@ public class TwitterKeys
     public string ApiKey { get; set; }
     public string ApiSecret { get; set; }
 }
+public class SocialPostResult
+{
+    public bool Success { get; set; }
+    public string? PostId { get; set; }
+    public string? Permalink { get; set; }
+    public List<string>? MediaUrls { get; set; }
+    public string? RawResponse { get; set; }
+}
 public class EmailSettings
 {
     public string SmtpServer { get; set; }

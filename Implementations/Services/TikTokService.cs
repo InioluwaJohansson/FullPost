@@ -2,6 +2,8 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using FullPost.Interfaces.Services;
+using FullPost.Models.DTOs;
+using Microsoft.AspNetCore.Http;
 
 namespace FullPost.Implementations.Services;
 public class TikTokService : ITikTokService
@@ -19,8 +21,9 @@ public class TikTokService : ITikTokService
     private string ApiSecret => _config["TikTok:ClientSecret"]!;
     private const string TikTokApiBase = "https://open.tiktokapis.com/v2/";
 
-    public async Task<string> CreatePostAsync(string accessToken, IFormFile videoFile, string title)
+    public async Task<SocialPostResult> CreatePostAsync(string accessToken, IFormFile videoFile, string title)
     {
+        // 1️⃣ Initialize upload
         var initRequest = new HttpRequestMessage(HttpMethod.Post, $"{TikTokApiBase}video/init/")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", accessToken) },
@@ -29,7 +32,6 @@ public class TikTokService : ITikTokService
 
         var initResponse = await _httpClient.SendAsync(initRequest);
         var initJson = await initResponse.Content.ReadAsStringAsync();
-
         if (!initResponse.IsSuccessStatusCode)
             throw new Exception($"TikTok init upload failed: {initJson}");
 
@@ -37,12 +39,12 @@ public class TikTokService : ITikTokService
         var uploadUrl = initObj.GetProperty("data").GetProperty("upload_url").GetString();
         var videoId = initObj.GetProperty("data").GetProperty("video_id").GetString();
 
+        // 2️⃣ Upload video file
         using (var stream = videoFile.OpenReadStream())
         {
             var uploadContent = new StreamContent(stream);
             uploadContent.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
             var uploadResponse = await _httpClient.PutAsync(uploadUrl, uploadContent);
-
             if (!uploadResponse.IsSuccessStatusCode)
             {
                 var error = await uploadResponse.Content.ReadAsStringAsync();
@@ -50,6 +52,7 @@ public class TikTokService : ITikTokService
             }
         }
 
+        // 3️⃣ Publish video
         var publishData = new
         {
             video_id = videoId,
@@ -64,11 +67,17 @@ public class TikTokService : ITikTokService
 
         var publishResponse = await _httpClient.SendAsync(publishRequest);
         var publishJson = await publishResponse.Content.ReadAsStringAsync();
-
         if (!publishResponse.IsSuccessStatusCode)
             throw new Exception($"TikTok publish failed: {publishJson}");
 
-        return videoId!;
+        // 4️⃣ Build SocialPostResult
+        return new SocialPostResult
+        {
+            Success = true,
+            PostId = videoId,
+            //MediaUrls = $"https://www.tiktok.com/@me/video/{videoId}", // TikTok video URL
+            Permalink = $"https://www.tiktok.com/@me/video/{videoId}"
+        };
     }
 
     public async Task<JsonElement?> GetAllPostsAsync(string accessToken, string openId)
@@ -78,22 +87,20 @@ public class TikTokService : ITikTokService
 
         var response = await _httpClient.SendAsync(request);
         var json = await response.Content.ReadAsStringAsync();
-
         if (!response.IsSuccessStatusCode)
             throw new Exception($"TikTok fetch videos failed: {json}");
 
         return JsonDocument.Parse(json).RootElement.GetProperty("data");
     }
 
-    public async Task<bool> EditPostAsync(string accessToken, string videoId, string newTitle)
+    public Task<SocialPostResult> EditPostAsync(string accessToken, string videoId, string newTitle)
     {
-
-        throw new NotSupportedException("TikTok API does not currently support editing or updating a video post.");
+        throw new NotSupportedException("TikTok API does not support editing a video post.");
     }
 
-    public async Task<bool> DeletePostAsync(string accessToken, string videoId)
+    public Task<bool> DeletePostAsync(string accessToken, string videoId)
     {
-        throw new NotSupportedException("TikTok API does not currently support deleting a video post.");
+        throw new NotSupportedException("TikTok API does not support deleting a video post.");
     }
 
     public async Task<JsonElement?> GetUserProfileAsync(string accessToken)
@@ -103,7 +110,6 @@ public class TikTokService : ITikTokService
 
         var response = await _httpClient.SendAsync(request);
         var json = await response.Content.ReadAsStringAsync();
-
         if (!response.IsSuccessStatusCode)
             throw new Exception($"TikTok user info failed: {json}");
 
