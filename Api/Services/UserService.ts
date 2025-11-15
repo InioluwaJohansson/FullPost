@@ -1,6 +1,5 @@
 import apiClient from "../Client & Dtos/ApiClient";
 import type { CreateCustomerDto, LoginResponse } from "../Client & Dtos/Dto";
-import * as dto from "../Client & Dtos/Dto";
 export const authService = {
   signup: async (data: CreateCustomerDto): Promise<LoginResponse> => {
     const response = await apiClient.post<LoginResponse>("/auth/signup", data);
@@ -39,6 +38,8 @@ export const authService = {
     );
     if (response.data.token) {
       localStorage.setItem("jwtToken", response.data.token);
+      localStorage.setItem("UserId", response.data.userId.toString());
+      localStorage.setItem("loginData", JSON.stringify(response.data));
     }
     return response.data;
   },

@@ -3,7 +3,8 @@ using FullPost.Models.DTOs;
 namespace FullPost.Interfaces.Services;
 public interface ISubscriptionService
 {
-    Task<bool> CheckUserSubscriptionStatus(int userId);
+    Task<(bool,string)> CheckUserSubscriptionStatus(int userId);
+    Task AutoSubscribeSubscription();
     Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto);
     Task<BaseResponse> SubscribeUserAsync(int userId, int planId);
     Task<BaseResponse> CancelSubscriptionAsync(string subscriptionCode);

@@ -7,7 +7,10 @@ using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
 using FullPost.Interfaces.Services;
+using FullPost.Models.DTOs;
+
 namespace FullPost.Implementations.Services;
+
 public class InstagramService : IInstagramService
 {
     private readonly Cloudinary _cloudinary;
@@ -54,11 +57,14 @@ public class InstagramService : IInstagramService
             }
         }
 
-        return uploadResult.SecureUrl?.ToString() ?? throw new Exception("Upload to Cloudinary failed.");
+        return uploadResult.SecureUrl?.ToString() ??
+               throw new Exception("Upload to Cloudinary failed.");
     }
+
     private async Task<string> CreateMediaObjectAsync(string igUserId, string caption, string mediaUrl, string accessToken, bool isVideo)
     {
         var endpoint = $"https://graph.facebook.com/v21.0/{igUserId}/media";
+
         var data = new Dictionary<string, string>
         {
             { isVideo ? "video_url" : "image_url", mediaUrl },
@@ -68,8 +74,8 @@ public class InstagramService : IInstagramService
 
         var response = await _httpClient.PostAsync(endpoint, new FormUrlEncodedContent(data));
         var result = await response.Content.ReadAsStringAsync();
-
         var json = JsonDocument.Parse(result);
+
         if (json.RootElement.TryGetProperty("id", out var id))
             return id.GetString()!;
 
@@ -79,6 +85,7 @@ public class InstagramService : IInstagramService
     private async Task<string> PublishMediaAsync(string igUserId, string creationId, string accessToken)
     {
         var endpoint = $"https://graph.facebook.com/v21.0/{igUserId}/media_publish";
+
         var data = new Dictionary<string, string>
         {
             { "creation_id", creationId },
@@ -89,36 +96,110 @@ public class InstagramService : IInstagramService
         return await response.Content.ReadAsStringAsync();
     }
 
-    public async Task<string> CreatePostAsync(string igUserId, string accessToken, string caption, List<IFormFile>? mediaFiles = null)
+    private async Task<(string PostId, string Permalink)> FetchPublishedPostDetailsAsync(string mediaId, string accessToken)
+    {
+        var endpoint = $"https://graph.facebook.com/v21.0/{mediaId}?fields=id,permalink&access_token={accessToken}";
+
+        var response = await _httpClient.GetAsync(endpoint);
+        var jsonText = await response.Content.ReadAsStringAsync();
+
+        var json = JsonDocument.Parse(jsonText);
+
+        string? id = json.RootElement.GetProperty("id").GetString();
+        string? link = json.RootElement.TryGetProperty("permalink", out var permalink)
+            ? permalink.GetString()
+            : null;
+
+        return (id!, link ?? "");
+    }
+
+    // ----------------------------------------------------
+    // CREATE POST
+    // ----------------------------------------------------
+    public async Task<SocialPostResult> CreatePostAsync(string igUserId, string accessToken, string caption, List<IFormFile>? mediaFiles = null)
     {
         if (mediaFiles == null || mediaFiles.Count == 0)
-            throw new Exception("Instagram requires at least one media file.");
+        {
+            return new SocialPostResult
+            {
+                Success = false,
+                RawResponse = "Instagram requires at least one media file."
+            };
+        }
 
-        var file = mediaFiles[0];
+        try
+        {
+            var file = mediaFiles[0];
 
-        string mediaUrl = await UploadToCloudinaryAsync(file);
-        bool isVideo = file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+            string mediaUrl = await UploadToCloudinaryAsync(file);
+            bool isVideo = file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
 
-        var creationId = await CreateMediaObjectAsync(igUserId, caption, mediaUrl, accessToken, isVideo);
-        var publishResult = await PublishMediaAsync(igUserId, creationId, accessToken);
+            var creationId = await CreateMediaObjectAsync(igUserId, caption, mediaUrl, accessToken, isVideo);
 
-        return publishResult;
+            var publishResponse = await PublishMediaAsync(igUserId, creationId, accessToken);
+            var publishJson = JsonDocument.Parse(publishResponse);
+
+            if (!publishJson.RootElement.TryGetProperty("id", out var publishedIdJson))
+            {
+                return new SocialPostResult
+                {
+                    Success = false,
+                    RawResponse = publishResponse
+                };
+            }
+
+            var postId = publishedIdJson.GetString()!;
+
+            // Fetch permalink
+            var (pId, permalink) = await FetchPublishedPostDetailsAsync(postId, accessToken);
+
+            return new SocialPostResult
+            {
+                Success = true,
+                PostId = pId,
+                Permalink = permalink,
+                MediaUrls = new List<string> { mediaUrl },
+                RawResponse = publishResponse
+            };
+        }
+        catch (Exception ex)
+        {
+            return new SocialPostResult
+            {
+                Success = false,
+                RawResponse = ex.Message
+            };
+        }
     }
 
-    public async Task<string> EditPostAsync(string igUserId, string accessToken, string oldMediaId, string newCaption, List<IFormFile>? newMedia = null)
+    // ----------------------------------------------------
+    // EDIT POST (delete + re-post)
+    // ----------------------------------------------------
+    public async Task<SocialPostResult> EditPostAsync(string igUserId, string accessToken, string oldMediaId, string newCaption, List<IFormFile>? newMedia = null)
     {
-        Console.WriteLine($"Editing post {oldMediaId}...");
-        await DeletePostAsync(accessToken, oldMediaId);
-        return await CreatePostAsync(igUserId, accessToken, newCaption, newMedia);
+        try
+        {
+            await DeletePostAsync(accessToken, oldMediaId);
+
+            return await CreatePostAsync(igUserId, accessToken, newCaption, newMedia);
+        }
+        catch (Exception ex)
+        {
+            return new SocialPostResult
+            {
+                Success = false,
+                RawResponse = ex.Message
+            };
+        }
     }
 
+    // ----------------------------------------------------
+    // DELETE POST
+    // ----------------------------------------------------
     public async Task<bool> DeletePostAsync(string accessToken, string mediaId)
     {
         var endpoint = $"https://graph.facebook.com/v21.0/{mediaId}?access_token={accessToken}";
         var response = await _httpClient.DeleteAsync(endpoint);
-        Console.WriteLine(response.IsSuccessStatusCode
-            ? $"Deleted post {mediaId} successfully."
-            : $"Failed to delete post: {await response.Content.ReadAsStringAsync()}");
         return response.IsSuccessStatusCode;
     }
 
@@ -126,10 +207,8 @@ public class InstagramService : IInstagramService
     {
         var endpoint =
             $"https://graph.facebook.com/v21.0/{igUserId}/media?fields=id,caption,media_type,media_url,permalink,timestamp&limit={limit}&access_token={accessToken}";
-        var response = await _httpClient.GetAsync(endpoint);
-        var result = await response.Content.ReadAsStringAsync();
 
-        Console.WriteLine($"Retrieved {limit} posts for {igUserId}");
-        return result;
+        var response = await _httpClient.GetAsync(endpoint);
+        return await response.Content.ReadAsStringAsync();
     }
 }

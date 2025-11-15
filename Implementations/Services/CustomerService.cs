@@ -190,16 +190,16 @@ public class CustomerService : ICustomerService
                     throw new Exception("Cloudinary upload failed: " + uploadResult.Error?.Message);
                 }
             }
-            customer.User.Email = updateCustomerDto.Email ?? customer.User.Email;
             customer.FirstName = updateCustomerDto.FirstName ?? customer.FirstName;
             customer.LastName = updateCustomerDto.LastName ?? customer.LastName;
             customer.User.UserName = updateCustomerDto.UserName ?? customer.User.UserName;
             customer.PictureUrl = imgUrl ?? customer.PictureUrl;
+            customer.User.AutoSubscribe = updateCustomerDto.AutoSubscribe;
             await _customerRepo.Update(customer);
             return new BaseResponse
             {
                 Status = true,
-                Message = "Account Created!"
+                Message = "Account Updated!"
             };
         }
         return new BaseResponse

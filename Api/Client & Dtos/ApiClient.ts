@@ -1,20 +1,18 @@
-import axios from "axios";
+const BASE_URL = "https://localhost:7275";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "https://localhost:7275";
+import axios, { AxiosRequestConfig } from "axios";
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use((config: AxiosRequestConfig) => {
   const token = localStorage.getItem("jwtToken");
-  if (token) {
+  if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
 export default apiClient;
+export { BASE_URL };

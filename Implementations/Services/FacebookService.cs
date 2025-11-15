@@ -5,123 +5,184 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
-using System.Text.Json;
+
 namespace FullPost.Implementations.Services;
+
 public class FacebookService : IFacebookService
 {
     private readonly HttpClient _httpClient;
+
     public FacebookService()
     {
         _httpClient = new HttpClient();
     }
-    public async Task<string> CreatePostAsync(string userAccessToken, string pageId, string message, List<IFormFile>? mediaFiles = null)
+
+    public async Task<SocialPostResult> CreatePostAsync(string pageId, string accessToken, string message, List<IFormFile>? mediaFiles = null)
     {
-        if (mediaFiles == null || mediaFiles.Count == 0)
+        var mediaUrls = new List<string>();
+        string? postId = null;
+        string? permalink = null;
+
+        try
         {
-            var textUrl = $"https://graph.facebook.com/{pageId}/feed";
-            var textData = new Dictionary<string, string>
+            // TEXT POST ONLY --------------------------
+            if (mediaFiles == null || mediaFiles.Count == 0)
             {
-                { "message", message },
-                { "access_token", userAccessToken }
-            };
-            var textResponse = await _httpClient.PostAsync(textUrl, new FormUrlEncodedContent(textData));
-            var textContent = await textResponse.Content.ReadAsStringAsync();
-            return textContent;
-        }
-        else
-        {
-            string lastMediaId = "";
+                var url = $"https://graph.facebook.com/{pageId}/feed";
+                var data = new Dictionary<string, string>
+                {
+                    { "message", message },
+                    { "access_token", accessToken }
+                };
+
+                var response = await _httpClient.PostAsync(url, new FormUrlEncodedContent(data));
+                var content = await response.Content.ReadAsStringAsync();
+
+                var json = JObject.Parse(content);
+
+                postId = json["id"]?.ToString();
+                permalink = postId != null ? $"https://facebook.com/{postId}" : null;
+
+                return new SocialPostResult
+                {
+                    Success = response.IsSuccessStatusCode,
+                    PostId = postId,
+                    Permalink = permalink,
+                    MediaUrls = mediaUrls,
+                    RawResponse = content
+                };
+            }
+
+            // MEDIA POST -------------------------------
+            string? lastMediaPostId = null;
 
             foreach (var file in mediaFiles)
             {
                 using var ms = new MemoryStream();
                 await file.CopyToAsync(ms);
-                var bytes = ms.ToArray();
 
-                var form = new MultipartFormDataContent();
-                form.Add(new StringContent(message), "message");
-                form.Add(new StringContent(userAccessToken), "access_token");
-                form.Add(new ByteArrayContent(bytes)
+                var form = new MultipartFormDataContent
                 {
-                    Headers =
-                    {
-                        ContentType = MediaTypeHeaderValue.Parse(file.ContentType)
-                    }
-                }, "source", file.FileName);
+                    { new StringContent(message), "message" },
+                    { new StringContent(accessToken), "access_token" }
+                };
+
+                var fileContent = new ByteArrayContent(ms.ToArray());
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.ContentType);
+
+                form.Add(fileContent, "source", file.FileName);
 
                 var isVideo = file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
-                var url = isVideo
+                var uploadUrl = isVideo
                     ? $"https://graph.facebook.com/{pageId}/videos"
                     : $"https://graph.facebook.com/{pageId}/photos";
 
-                var uploadResponse = await _httpClient.PostAsync(url, form);
-                var content = await uploadResponse.Content.ReadAsStringAsync();
-                lastMediaId = content;
+                var uploadResponse = await _httpClient.PostAsync(uploadUrl, form);
+                var uploadText = await uploadResponse.Content.ReadAsStringAsync();
+
+                var json = JObject.Parse(uploadText);
+
+                var mediaId = json["id"]?.ToString();
+                lastMediaPostId = json["post_id"]?.ToString() ?? lastMediaPostId;
+
+                if (!string.IsNullOrEmpty(mediaId))
+                {
+                    // Fetch URL of the uploaded media
+                    var mediaInfoUrl = isVideo
+                        ? $"https://graph.facebook.com/{mediaId}?fields=permalink_url,source&access_token={accessToken}"
+                        : $"https://graph.facebook.com/{mediaId}?fields=images,link&access_token={accessToken}";
+
+                    var mediaInfo = await _httpClient.GetStringAsync(mediaInfoUrl);
+                    var mediaJson = JObject.Parse(mediaInfo);
+
+                    if (isVideo)
+                        mediaUrls.Add(mediaJson["permalink_url"]?.ToString() ?? "");
+                    else
+                        mediaUrls.Add(mediaJson["link"]?.ToString() ?? "");
+                }
             }
 
-            return lastMediaId;
+            postId = lastMediaPostId;
+            permalink = postId != null ? $"https://facebook.com/{postId}" : null;
+
+            return new SocialPostResult
+            {
+                Success = true,
+                PostId = postId,
+                Permalink = permalink,
+                MediaUrls = mediaUrls,
+                RawResponse = ""
+            };
+        }
+        catch (Exception ex)
+        {
+            return new SocialPostResult
+            {
+                Success = false,
+                PostId = postId,
+                Permalink = permalink,
+                MediaUrls = mediaUrls,
+                RawResponse = ex.Message
+            };
         }
     }
 
-    public async Task<string?> EditPostAsync(string postId,string userAccessToken,string pageId,string newMessage,List<IFormFile>? newMediaFiles = null)
+    public async Task<SocialPostResult> EditPostAsync(string pageId, string accessToken, string postId, string newMessage, List<IFormFile>? newMedia = null)
     {
         try
         {
-            if (newMediaFiles == null || newMediaFiles.Count == 0)
+            // If no media change → just edit message
+            if (newMedia == null || newMedia.Count == 0)
             {
-                var editUrl = $"https://graph.facebook.com/{postId}";
+                var url = $"https://graph.facebook.com/{postId}";
                 var data = new Dictionary<string, string>
                 {
                     { "message", newMessage },
-                    { "access_token", userAccessToken }
+                    { "access_token", accessToken }
                 };
 
-                var response = await _httpClient.PostAsync(editUrl, new FormUrlEncodedContent(data));
-                var result = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.PostAsync(url, new FormUrlEncodedContent(data));
+                var content = await response.Content.ReadAsStringAsync();
 
-                if (response.IsSuccessStatusCode)
-                    return postId;
-
-                return null;
+                return new SocialPostResult
+                {
+                    Success = response.IsSuccessStatusCode,
+                    PostId = postId,
+                    Permalink = $"https://facebook.com/{postId}",
+                    MediaUrls = null,
+                    RawResponse = content
+                };
             }
 
-            var deleteResponse = await _httpClient.DeleteAsync($"https://graph.facebook.com/{postId}?access_token={userAccessToken}");
-            if (!deleteResponse.IsSuccessStatusCode)
-            {
-                return null;
-            }
+            // Facebook does NOT support editing media → delete + recreate
+            await DeletePostAsync(accessToken, postId);
 
-            var createResult = await CreatePostAsync(userAccessToken, pageId, newMessage, newMediaFiles);
-
-            if (!string.IsNullOrWhiteSpace(createResult))
-            {
-                using var jsonDoc = JsonDocument.Parse(createResult);
-                if (jsonDoc.RootElement.TryGetProperty("id", out var newPostId))
-                    return newPostId.GetString();
-            }
-
-            return null;
+            return await CreatePostAsync(pageId, accessToken, newMessage, newMedia);
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            return new SocialPostResult
+            {
+                Success = false,
+                PostId = postId,
+                RawResponse = ex.Message
+            };
         }
     }
 
-    public async Task<bool> DeletePostAsync(string userAccessToken, string postId)
+    public async Task<bool> DeletePostAsync(string accessToken, string postId)
     {
-        var url = $"https://graph.facebook.com/{postId}?access_token={userAccessToken}";
+        var url = $"https://graph.facebook.com/{postId}?access_token={accessToken}";
         var response = await _httpClient.DeleteAsync(url);
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<string> GetPostsAsync(string userAccessToken, string pageId, int limit = 5)
+    public async Task<string> GetPostsAsync(string pageId, string accessToken, int limit = 5)
     {
-        var url = $"https://graph.facebook.com/{pageId}/posts?limit={limit}&access_token={userAccessToken}";
-        var response = await _httpClient.GetAsync(url);
-        return await response.Content.ReadAsStringAsync();
+        var url = $"https://graph.facebook.com/{pageId}/posts?limit={limit}&access_token={accessToken}";
+        return await _httpClient.GetStringAsync(url);
     }
 }

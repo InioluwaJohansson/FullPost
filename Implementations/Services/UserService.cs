@@ -60,7 +60,7 @@ public class UserService : IUserService
         var user = await _userRepo.Get(x => x.Email.Equals(email));
         if (user != null)
         {
-            var resetLink = $"email={email}token={((await _customerRepo.Get(x => x.UserId == user.Id)).CustomerId)}time={DateTime.UtcNow.AddMinutes(10)}";
+            var resetLink = $"email={email}token={((await _customerRepo.Get(x => x.UserId == user.Id)).CustomerId)}time={DateTime.UtcNow.AddMinutes(10)}subToken={Guid.NewGuid().ToString().Substring(0,18)}";
             await _emailService.SendEmailAsync(email, "Password Reset", $"Click the link to reset your password. {resetLink}");
             return new BaseResponse()
             {
