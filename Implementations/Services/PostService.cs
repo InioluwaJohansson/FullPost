@@ -61,7 +61,6 @@ public class PostService : IPostService
                 try
                 {
                     createPostDto.Platforms ??= new List<string> { "twitter", "facebook", "instagram" };
-                    string? twitterId = null, facebookId = null, instagramId = null, youtubeId = null, tiktokId = null, linkedinId = null;
                     List<string> uploadedUrls = new();
 
                     SocialPostResult? resultT = null, resultF = null, resultY = null, resultI =null, resultLi = null, resultTik = null;
@@ -159,11 +158,10 @@ public class PostService : IPostService
         if (post == null)
             return new BaseResponse { Status = false, Message = "Post not found." };
 
-        SocialPostResult twitterResult = null, facebookResult = null, instagramResult = null, youtubeResult = null, tiktokResult = null, linkedinResult = null; 
+        SocialPostResult twitterResult = new SocialPostResult (), facebookResult = null, instagramResult = null, youtubeResult = null, tiktokResult = null, linkedinResult = null; 
         try
         {
             List<string> updatedMediaUrls = new();
-            string? youtubeLink = null;
             if (!string.IsNullOrEmpty(post.TwitterPostId))
             {
                 twitterResult = await _twitterService.EditTweetAsync(
@@ -189,7 +187,7 @@ public class PostService : IPostService
                 if (facebookResult.MediaUrls != null)
                     updatedMediaUrls.AddRange(facebookResult.MediaUrls);
             }
-            // Instagram
+
             if (!string.IsNullOrEmpty(post.InstagramPostId))
             {
                 instagramResult = await _instagramService.EditPostAsync(
@@ -203,7 +201,6 @@ public class PostService : IPostService
                     updatedMediaUrls.AddRange(instagramResult.MediaUrls);
             }
 
-            // YouTube
             if (!string.IsNullOrEmpty(post.YouTubePostId) && editPostDto.NewMediaFiles?.Any() == true)
             {
                 youtubeResult = await _youtubeService.EditPostAsync(
@@ -212,13 +209,10 @@ public class PostService : IPostService
                     editPostDto.NewTitle,
                     editPostDto.NewCaption
                 );
-
-                youtubeLink = $"https://www.youtube.com/watch?v={youtubeResult.PostId}";
                 if (youtubeResult.MediaUrls != null)
                     updatedMediaUrls.AddRange(youtubeResult.MediaUrls);
             }
 
-            // TikTok
             if (!string.IsNullOrEmpty(post.TikTokPostId))
             {
                 tiktokResult = await _tiktokService.EditPostAsync(
@@ -248,15 +242,15 @@ public class PostService : IPostService
             post.Title = editPostDto.NewTitle;
             post.Caption = editPostDto.NewCaption;
             post.MediaUrls = updatedMediaUrls.Any() ? JsonSerializer.Serialize(updatedMediaUrls) : null;
-            post.TwitterPostId = post.TwitterPostId; // no change in ID
-            post.FacebookPostId = post.FacebookPostId;
-            post.InstagramPostId = post.InstagramPostId;
-            post.YouTubePostId = post.YouTubePostId;
-            post.TikTokPostId = post.TikTokPostId;
+            post.TwitterPostId = twitterResult.PostId; // no change in ID
+            post.FacebookPostId = facebookResult.PostId;
+            post.InstagramPostId = instagramResult.PostId;
+            post.YouTubePostId = youtubeResult.PostId;
+            post.TikTokPostId = linkedinResult.PostId;
             post.TwitterPostLink = twitterResult.Permalink;
             post.FacebookPostLink = facebookResult.Permalink;
             post.InstagramPostLink = instagramResult.Permalink;
-            post.YouTubePostLink = youtubeLink;
+            post.YouTubePostLink = $"https://www.youtube.com/watch?v={youtubeResult.PostId}";
             post.TikTokPostLink = tiktokResult.Permalink;
             post.LinkedInPostLink = linkedinResult.Permalink;
 

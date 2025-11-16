@@ -11,6 +11,7 @@ public class SubscriptionService : ISubscriptionService
 {
     private readonly HttpClient _httpClient;
     private readonly string _paystackSecretKey;
+    private readonly string _paystackPublicKey;
     private readonly ISubscriptionPlanRepo _subscriptionPlanRepo;
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private readonly IUserRepo _userRepo;
@@ -24,6 +25,7 @@ public class SubscriptionService : ISubscriptionService
         _httpClient = new HttpClient();
         _emailService = emailService;
         _paystackSecretKey = config["Paystack:SecretKey"]!;
+        _paystackPublicKey = config["Paystack:PublicKey"]!;
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _paystackSecretKey);
     }
     public async Task<(bool, string)> CheckUserSubscriptionStatus(int userId)
@@ -33,43 +35,56 @@ public class SubscriptionService : ISubscriptionService
         if (userSubscription != null && subscription != null && userSubscription.LastOrDefault().EndDate > DateTime.UtcNow) return (true,subscription.NoOfPosts);
         else return (false, null);
     }
-    public async Task<BaseResponse> CancelSubscriptionAsync(string subscriptionCode)
+    public async Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId)
     {
-        var response = await _httpClient.PostAsync(
-            $"https://api.paystack.co/subscription/disable",
-            new StringContent(JsonSerializer.Serialize(new { code = subscriptionCode }),
-            Encoding.UTF8, "application/json")
-        );
+        var userSub = await _userSubscriptionRepo.Get(x => x.Id == subId);
 
+        if (userSub == null)
+            return new BaseResponse { Status = false, Message = "User has no active subscription." };
+
+        if (string.IsNullOrWhiteSpace(userSub.PaystackSubscriptionCode) ||
+            string.IsNullOrWhiteSpace(userSub.PaystackEmailToken))
+        {
+            return new BaseResponse { Status = false, Message = "Missing Paystack subscription credentials." };
+        }
+
+        var payload = new
+        {
+            code = userSub.PaystackSubscriptionCode,
+            token = userSub.PaystackEmailToken
+        };
+
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync("https://api.paystack.co/subscription/disable", content);
         var result = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
             return new BaseResponse { Status = false, Message = $"Failed to cancel subscription: {result}" };
 
-        var sub = await _userSubscriptionRepo.Get(s => s.PaystackSubscriptionCode == subscriptionCode);
-        if (sub != null)
+        userSub.IsActive = false;
+        userSub.EndDate = DateTime.UtcNow;
+        await _userSubscriptionRepo.Update(userSub);
+
+        var user = await _userRepo.Get(u => u.Id == userId);
+        if (user != null)
         {
-            sub.IsActive = false;
-            sub.EndDate = DateTime.UtcNow;
-            await _userSubscriptionRepo.Update(sub);
+            await _emailService.SendEmailAsync(user.Email, "Subscription Cancelled", "Your subscription has been successfully cancelled.");
         }
-        var user = await _userRepo.Get(u => u.Id == sub.UserId);
-        await _emailService.SendEmailAsync(user.Email, "Subscription Cancelled", "Your subscription has been successfully cancelled.");
-        return new BaseResponse()
-        {
-            Status = true,
-            Message = "Subscription cancelled successfully."
-        };
+
+        return new BaseResponse { Status = true, Message = "Subscription cancelled successfully." };
     }
+
 
     public async Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto)
     {
         var payload = new
         {
             name = subscriptionDto.Name,
-            amount = (int)(subscriptionDto.Amount * 100), // Paystack expects amount in kobo
+            amount = (int)(subscriptionDto.Amount * 100),
             interval = subscriptionDto.Interval.ToString(),
-            description = subscriptionDto.Description
+            description = subscriptionDto.Description,
+            send_invoices = true
         };
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync("https://api.paystack.co/plan", content);
@@ -96,7 +111,6 @@ public class SubscriptionService : ISubscriptionService
             Message = "Plan Successfully Created"
         };
     }
-
     public async Task<SubscriptionPlanResponseModel> GetAllPlansAsync()
     {
         var plans = await _subscriptionPlanRepo.GetAll();
@@ -121,7 +135,6 @@ public class SubscriptionService : ISubscriptionService
             Data = null
         };
     }
-
     public async Task<UserSubscriptionResponseModel> GetUserSubscriptionsAsync(int userId)
     {
         var userSubscription = await _userSubscriptionRepo.GetUserSubscriptionsAsync(userId);
@@ -134,7 +147,7 @@ public class SubscriptionService : ISubscriptionService
                 {
                     StartDate = x.StartDate,
                     EndDate = x.EndDate,
-                    PaystackCustomerCode = x.PaystackCustomerCode,
+                    PaystackCustomerCode = x.PaystackEmailToken,
                     PaystackSubscriptionCode = x.PaystackSubscriptionCode,
                     IsActive = x.IsActive,
                     NoOfPostsThisMonth = x.NoOfPostsThisMonth,
@@ -152,41 +165,6 @@ public class SubscriptionService : ISubscriptionService
         {
             Status = false
         };
-    }
-    public async Task AutoSubscribeSubscription()
-    {
-        var users = await _userRepo.GetAll();
-        if (users != null)
-        {
-            foreach (var user in users.Where(x => x.AutoSubscribe == true))
-            {
-                var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == user.Id);
-                if(userSubscription != null)
-                {
-                    var plan = await _subscriptionPlanRepo.GetAll();
-                    if(plan != null)
-                    {
-                        if(userSubscription.LastOrDefault().EndDate < DateTime.UtcNow) await SubscribeUserAsync(user.Id, userSubscription.LastOrDefault().PlanId);
-                    } 
-                }
-            }
-            foreach (var user in users.Where(x => x.AutoSubscribe == false))
-            {
-                var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == user.Id);
-                if(userSubscription != null)
-                {
-                    var plan = await _subscriptionPlanRepo.Get(x => x.Name == "Basic");
-                    if(plan != null)
-                    {
-                        if(userSubscription.LastOrDefault().EndDate <= DateTime.UtcNow) await SubscribeUserAsync(user.Id, plan.Id);
-                    } 
-                }
-            }
-        }
-        else
-        {
-            
-        }
     }
     public async Task<BaseResponse> SubscribeUserAsync(int userId, int planId)
     {
@@ -216,15 +194,17 @@ public class SubscriptionService : ISubscriptionService
         var json = JsonDocument.Parse(result);
         var data = json.RootElement.GetProperty("data");
         var subscriptionCode = data.GetProperty("subscription_code").GetString();
-        var customerCode = data.GetProperty("customer").GetProperty("customer_code").GetString();
+        var emailToken = data.GetProperty("email_token").GetString();
         var subscription = new UserSubscription
         {
             UserId = userId,
             PlanId = plan.Id,
             PaystackSubscriptionCode = subscriptionCode,
-            PaystackCustomerCode = customerCode,
+            PaystackEmailToken = emailToken,
+            Email = user.Email,
             StartDate = DateTime.UtcNow,
             EndDate = DateTime.UtcNow.AddDays(plan.Interval),
+            NoOfPostsThisMonth = 0,
             IsActive = true
         };
         await _userSubscriptionRepo.Create(subscription);
@@ -234,5 +214,77 @@ public class SubscriptionService : ISubscriptionService
             Status = true,
             Message = "Subscription successful."
         };
+    }
+    public async Task OnSubscriptionRenewed(dynamic data)
+    {
+        try
+        {
+            string subscriptionCode = data.subscription_code ?? data.data?.subscription_code;
+            string customerEmail = null;
+            try { customerEmail = data.customer?.email ?? data.data?.customer?.email; } catch { }
+
+            List<UserSubscription> allSubs = null;
+            if (!string.IsNullOrWhiteSpace(subscriptionCode))
+            {
+                allSubs = (await _userSubscriptionRepo.GetByExpression(x => x.Email == customerEmail && x.PaystackSubscriptionCode == subscriptionCode)).ToList();
+            }
+            var userSub = allSubs?.LastOrDefault();
+            if (userSub == null)  return;
+            var user = await _userRepo.Get(u => u.Id == userSub.UserId);
+            var plan = await _subscriptionPlanRepo.Get(p => p.Id == userSub.PlanId);
+            if (plan != null & user != null)
+            {
+                foreach(var sub in allSubs)
+                {
+                    sub.IsActive = false;
+                    await _userSubscriptionRepo.Update(sub);
+                }
+                var subscription = new UserSubscription
+                {
+                    UserId = userSub.UserId,
+                    PlanId = plan.Id,
+                    PaystackSubscriptionCode = subscriptionCode,
+                    PaystackEmailToken = userSub.PaystackEmailToken,
+                    StartDate = DateTime.UtcNow,
+                    EndDate = DateTime.UtcNow.AddDays(plan.Interval),
+                    NoOfPostsThisMonth = 0,
+                    IsActive = true
+                };
+                await _userSubscriptionRepo.Create(subscription);
+                await _emailService.SendEmailAsync(user.Email,$"{plan.Name} Subscription Renewed",$"Your subscription has been successfully renewed. Your post quota for this billing period has been reset.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnSubscriptionRenewed error: {ex}");
+        }
+    }
+    public async Task OnSubscriptionPaymentFailed(dynamic data)
+    {
+        try
+        {
+            string subscriptionCode = data.subscription_code ?? data.data?.subscription_code;
+            string customerEmail = null;
+            try { customerEmail = data.customer?.email ?? data.data?.customer?.email; } catch { }
+
+            UserSubscription? userSub = null;
+            if (!string.IsNullOrWhiteSpace(subscriptionCode))
+            {
+                var allSubs = await _userSubscriptionRepo.GetByExpression(x => x.Email == customerEmail && x.PaystackSubscriptionCode == subscriptionCode);
+                userSub = allSubs?.LastOrDefault();
+            }
+            if (userSub == null)  return;
+            var user = await _userRepo.Get(u => u.Id == userSub.UserId);
+            var plan = await _subscriptionPlanRepo.Get(p => p.Id == userSub.PlanId);
+            userSub.IsActive = false;
+            userSub.EndDate = DateTime.UtcNow;
+            await _userSubscriptionRepo.Update(userSub);
+            if (user != null && plan != null)    await _emailService.SendEmailAsync(user.Email,$"{plan.Name} Subscription Payment Failed",$"We could not process your subscription payment. Please update your payment method to continue your subscription and avoid service disruption.");
+            
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnSubscriptionPaymentFailed error: {ex}");
+        }
     }
 }

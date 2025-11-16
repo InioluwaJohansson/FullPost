@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FullPost.Migrations
 {
     [DbContext(typeof(FullPostContext))]
-    [Migration("20251108160344_FullPost")]
+    [Migration("20251116122031_FullPost")]
     partial class FullPost
     {
         /// <inheritdoc />
@@ -218,6 +218,9 @@ namespace FullPost.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AutoSubscribe")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<int>("CreatedBy")
                         .HasColumnType("int");
 
@@ -284,7 +287,15 @@ namespace FullPost.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("FacebookPostLink")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("InstagramPostId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("InstagramPostLink")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -301,6 +312,10 @@ namespace FullPost.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("LinkedInPostLink")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("MediaUrls")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -313,7 +328,19 @@ namespace FullPost.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("TikTokPostLink")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("TwitterPostId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TwitterPostLink")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -321,6 +348,10 @@ namespace FullPost.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("YouTubePostId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("YouTubePostLink")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -340,12 +371,14 @@ namespace FullPost.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("Interval")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                    b.Property<int>("Interval")
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NoOfPosts")
                         .HasColumnType("longtext");
 
                     b.Property<string>("PaystackPlanCode")
@@ -372,6 +405,9 @@ namespace FullPost.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("NoOfPostsThisMonth")
+                        .HasColumnType("int");
 
                     b.Property<string>("PaystackCustomerCode")
                         .HasColumnType("longtext");
