@@ -397,6 +397,10 @@ namespace FullPost.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime(6)");
 
@@ -406,7 +410,7 @@ namespace FullPost.Migrations
                     b.Property<int>("NoOfPostsThisMonth")
                         .HasColumnType("int");
 
-                    b.Property<string>("PaystackCustomerCode")
+                    b.Property<string>("PaystackEmailToken")
                         .HasColumnType("longtext");
 
                     b.Property<string>("PaystackSubscriptionCode")

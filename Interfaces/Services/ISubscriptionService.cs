@@ -8,6 +8,7 @@ public interface ISubscriptionService
     Task OnSubscriptionPaymentFailed(dynamic data);
     Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto);
     Task<BaseResponse> SubscribeUserAsync(int userId, int planId);
+    Task<BaseResponse> VerifyAndActivateSubscriptionAsync(string reference, int userId, int planId);
     Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId);
     Task<SubscriptionPlanResponseModel> GetAllPlansAsync();
     Task<UserSubscriptionResponseModel> GetUserSubscriptionsAsync(int userId);

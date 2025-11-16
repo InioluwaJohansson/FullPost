@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FullPost.Migrations
 {
     [DbContext(typeof(FullPostContext))]
-    [Migration("20251116122031_FullPost")]
+    [Migration("20251116171836_FullPost")]
     partial class FullPost
     {
         /// <inheritdoc />
@@ -400,6 +400,10 @@ namespace FullPost.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime(6)");
 
@@ -409,7 +413,7 @@ namespace FullPost.Migrations
                     b.Property<int>("NoOfPostsThisMonth")
                         .HasColumnType("int");
 
-                    b.Property<string>("PaystackCustomerCode")
+                    b.Property<string>("PaystackEmailToken")
                         .HasColumnType("longtext");
 
                     b.Property<string>("PaystackSubscriptionCode")

@@ -215,6 +215,94 @@ public class SubscriptionService : ISubscriptionService
             Message = "Subscription successful."
         };
     }
+    public async Task<BaseResponse> VerifyAndActivateSubscriptionAsync(string reference, int userId, int planId)
+    {
+        var verifyUrl = $"https://api.paystack.co/transaction/verify/{reference}";
+        var response = await _httpClient.GetAsync(verifyUrl);
+        var json = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new BaseResponse
+            {
+                Status = false,
+                Message = $"Verification failed: {json}"
+            };
+        }
+
+        var doc = JsonDocument.Parse(json);
+        var data = doc.RootElement.GetProperty("data");
+
+        var status = data.GetProperty("status").GetString();
+        if (status != "success")
+        {
+            return new BaseResponse
+            {
+                Status = false,
+                Message = "Payment not successful."
+            };
+        }
+
+        var user = await _userRepo.Get(x => x.Id == userId);
+        if (user == null) return new BaseResponse { Status = false, Message = "User not found." };
+
+        var plan = await _subscriptionPlanRepo.Get(p => p.Id == planId);
+        if (plan == null) return new BaseResponse { Status = false, Message = "Invalid plan." };
+
+        // Verify paid amount matches plan price
+        var paidAmount = data.GetProperty("amount").GetInt32() / 100;
+        if (paidAmount < plan.Price)
+        {
+            return new BaseResponse
+            {
+                Status = false,
+                Message = "Incorrect payment amount."
+            };
+        }
+
+        string customerCode = data.GetProperty("customer").GetProperty("customer_code").GetString();
+        string emailToken = data.GetProperty("customer").GetProperty("email_token").GetString();
+
+        // Some transactions include subscription codes, otherwise you get them from subscription endpoint
+        // But Paystack often nests them here:
+        string subscriptionCode = data.TryGetProperty("subscription", out var subNode)
+            ? subNode.GetProperty("subscription_code").GetString()
+            : null;
+
+        if (string.IsNullOrWhiteSpace(subscriptionCode))
+        {
+            var autoSubscribe = await SubscribeUserAsync(userId, planId);
+            return autoSubscribe;
+        }
+
+        // Save subscription the same way SubscribeUserAsync does
+        var subscription = new UserSubscription
+        {
+            UserId = userId,
+            PlanId = plan.Id,
+            PaystackSubscriptionCode = subscriptionCode,
+            PaystackEmailToken = emailToken,
+            Email = user.Email,
+            StartDate = DateTime.UtcNow,
+            EndDate = DateTime.UtcNow.AddDays(plan.Interval),
+            NoOfPostsThisMonth = 0,
+            IsActive = true
+        };
+
+        await _userSubscriptionRepo.Create(subscription);
+
+        await _emailService.SendEmailAsync(
+            user.Email,
+            $"{plan.Name} Subscription Activated",
+            $"Your payment was verified and your  plan is now active."
+        );
+
+        return new BaseResponse
+        {
+            Status = true,
+            Message = "Subscription activated successfully."
+        };
+    }
     public async Task OnSubscriptionRenewed(dynamic data)
     {
         try

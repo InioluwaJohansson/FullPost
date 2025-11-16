@@ -54,13 +54,23 @@ public class SubscriptionController : Controller
         return result.Status ? Ok(result) : BadRequest(result);
     }
     [Authorize]
-    [HttpPost("cancel/{subscriptionCode}")]
-    public async Task<IActionResult> CancelSubscription(string subscriptionCode)
+    [HttpPost("verifyAndActivateSubscriptionAsync")]
+    public async Task<IActionResult> VerifyAndActivateSubscriptionAsync(string reference, int userId, int planId)
     {
         var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (user == null) return Unauthorized();
 
-        var result = await _subscriptionService.CancelSubscriptionAsync(subscriptionCode);
+        var result = await _subscriptionService.VerifyAndActivateSubscriptionAsync(reference, userId, planId);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
+    [Authorize]
+    [HttpPost("cancel/{userId}/{subId}")]
+    public async Task<IActionResult> CancelUserSubscriptionAsync(int userId, int subId)
+    {
+        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (user == null) return Unauthorized();
+
+        var result = await _subscriptionService.CancelUserSubscriptionAsync(userId, subId);
         return result.Status ? Ok(result) : BadRequest(result);
     }
     [Authorize]
