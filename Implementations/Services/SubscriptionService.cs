@@ -11,7 +11,6 @@ public class SubscriptionService : ISubscriptionService
 {
     private readonly HttpClient _httpClient;
     private readonly string _paystackSecretKey;
-    private readonly string _paystackPublicKey;
     private readonly ISubscriptionPlanRepo _subscriptionPlanRepo;
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private readonly IUserRepo _userRepo;
@@ -25,7 +24,6 @@ public class SubscriptionService : ISubscriptionService
         _httpClient = new HttpClient();
         _emailService = emailService;
         _paystackSecretKey = config["Paystack:SecretKey"]!;
-        _paystackPublicKey = config["Paystack:PublicKey"]!;
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _paystackSecretKey);
     }
     public async Task<(bool, string)> CheckUserSubscriptionStatus(int userId)
@@ -38,44 +36,28 @@ public class SubscriptionService : ISubscriptionService
     public async Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId)
     {
         var userSub = await _userSubscriptionRepo.Get(x => x.Id == subId);
-
         if (userSub == null)
             return new BaseResponse { Status = false, Message = "User has no active subscription." };
-
-        if (string.IsNullOrWhiteSpace(userSub.PaystackSubscriptionCode) ||
-            string.IsNullOrWhiteSpace(userSub.PaystackEmailToken))
-        {
+        if (string.IsNullOrWhiteSpace(userSub.PaystackSubscriptionCode) ||  string.IsNullOrWhiteSpace(userSub.PaystackEmailToken))
             return new BaseResponse { Status = false, Message = "Missing Paystack subscription credentials." };
-        }
-
         var payload = new
         {
             code = userSub.PaystackSubscriptionCode,
             token = userSub.PaystackEmailToken
         };
-
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
         var response = await _httpClient.PostAsync("https://api.paystack.co/subscription/disable", content);
         var result = await response.Content.ReadAsStringAsync();
-
         if (!response.IsSuccessStatusCode)
             return new BaseResponse { Status = false, Message = $"Failed to cancel subscription: {result}" };
-
         userSub.IsActive = false;
         userSub.EndDate = DateTime.UtcNow;
         await _userSubscriptionRepo.Update(userSub);
-
         var user = await _userRepo.Get(u => u.Id == userId);
         if (user != null)
-        {
             await _emailService.SendEmailAsync(user.Email, "Subscription Cancelled", "Your subscription has been successfully cancelled.");
-        }
-
         return new BaseResponse { Status = true, Message = "Subscription cancelled successfully." };
     }
-
-
     public async Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto)
     {
         var payload = new
@@ -183,14 +165,11 @@ public class SubscriptionService : ISubscriptionService
             customer = user.Email,
             plan = plan.PaystackPlanCode
         };
-
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync("https://api.paystack.co/subscription", content);
         var result = await response.Content.ReadAsStringAsync();
-
         if (!response.IsSuccessStatusCode)
             return new BaseResponse { Status = false, Message = $"Failed to subscribe user: {result}" };
-
         var json = JsonDocument.Parse(result);
         var data = json.RootElement.GetProperty("data");
         var subscriptionCode = data.GetProperty("subscription_code").GetString();
@@ -207,6 +186,8 @@ public class SubscriptionService : ISubscriptionService
             NoOfPostsThisMonth = 0,
             IsActive = true
         };
+        user.AutoSubscribe = true;
+        await _userRepo.Update(user);
         await _userSubscriptionRepo.Create(subscription);
         await _emailService.SendEmailAsync(user.Email, "Subscription Successful", $"You have successfully subscribed to the {plan.Name} plan.");
         return new BaseResponse()
@@ -220,7 +201,6 @@ public class SubscriptionService : ISubscriptionService
         var verifyUrl = $"https://api.paystack.co/transaction/verify/{reference}";
         var response = await _httpClient.GetAsync(verifyUrl);
         var json = await response.Content.ReadAsStringAsync();
-
         if (!response.IsSuccessStatusCode)
         {
             return new BaseResponse
@@ -229,10 +209,8 @@ public class SubscriptionService : ISubscriptionService
                 Message = $"Verification failed: {json}"
             };
         }
-
         var doc = JsonDocument.Parse(json);
         var data = doc.RootElement.GetProperty("data");
-
         var status = data.GetProperty("status").GetString();
         if (status != "success")
         {
@@ -242,14 +220,10 @@ public class SubscriptionService : ISubscriptionService
                 Message = "Payment not successful."
             };
         }
-
         var user = await _userRepo.Get(x => x.Id == userId);
         if (user == null) return new BaseResponse { Status = false, Message = "User not found." };
-
         var plan = await _subscriptionPlanRepo.Get(p => p.Id == planId);
         if (plan == null) return new BaseResponse { Status = false, Message = "Invalid plan." };
-
-        // Verify paid amount matches plan price
         var paidAmount = data.GetProperty("amount").GetInt32() / 100;
         if (paidAmount < plan.Price)
         {
@@ -259,23 +233,14 @@ public class SubscriptionService : ISubscriptionService
                 Message = "Incorrect payment amount."
             };
         }
-
         string customerCode = data.GetProperty("customer").GetProperty("customer_code").GetString();
         string emailToken = data.GetProperty("customer").GetProperty("email_token").GetString();
-
-        // Some transactions include subscription codes, otherwise you get them from subscription endpoint
-        // But Paystack often nests them here:
-        string subscriptionCode = data.TryGetProperty("subscription", out var subNode)
-            ? subNode.GetProperty("subscription_code").GetString()
-            : null;
-
+        string subscriptionCode = data.TryGetProperty("subscription", out var subNode) ? subNode.GetProperty("subscription_code").GetString() : null;
         if (string.IsNullOrWhiteSpace(subscriptionCode))
         {
             var autoSubscribe = await SubscribeUserAsync(userId, planId);
             return autoSubscribe;
         }
-
-        // Save subscription the same way SubscribeUserAsync does
         var subscription = new UserSubscription
         {
             UserId = userId,
@@ -288,15 +253,8 @@ public class SubscriptionService : ISubscriptionService
             NoOfPostsThisMonth = 0,
             IsActive = true
         };
-
         await _userSubscriptionRepo.Create(subscription);
-
-        await _emailService.SendEmailAsync(
-            user.Email,
-            $"{plan.Name} Subscription Activated",
-            $"Your payment was verified and your  plan is now active."
-        );
-
+        await _emailService.SendEmailAsync(user.Email,$"{plan.Name} Subscription Activated", $"Your payment was verified and your  plan is now active.");
         return new BaseResponse
         {
             Status = true,
@@ -373,6 +331,41 @@ public class SubscriptionService : ISubscriptionService
         catch (Exception ex)
         {
             Console.WriteLine($"OnSubscriptionPaymentFailed error: {ex}");
+        }
+    }
+    public async Task ResetToBasic()
+    {
+        var users = await _userRepo.GetAll();
+        if (users != null)
+        {
+            foreach (var user in users.Where(x => x.AutoSubscribe == true))
+            {
+                var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == user.Id);
+                if(userSubscription != null)
+                {
+                    var plan = await _subscriptionPlanRepo.GetAll();
+                    if(plan != null)
+                    {
+                        if(userSubscription.LastOrDefault().EndDate < DateTime.UtcNow) await SubscribeUserAsync(user.Id, userSubscription.LastOrDefault().PlanId);
+                    } 
+                }
+            }
+            foreach (var user in users.Where(x => x.AutoSubscribe == false))
+            {
+                var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == user.Id);
+                if(userSubscription != null)
+                {
+                    var plan = await _subscriptionPlanRepo.Get(x => x.Name == "Basic");
+                    if(plan != null)
+                    {
+                        if(userSubscription.LastOrDefault().EndDate <= DateTime.UtcNow) await SubscribeUserAsync(user.Id, plan.Id);
+                    } 
+                }
+            }
+        }
+        else
+        {
+            
         }
     }
 }

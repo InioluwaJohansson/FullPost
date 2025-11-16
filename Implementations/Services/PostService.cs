@@ -54,9 +54,7 @@ public class PostService : IPostService
             if (plan.NoOfPostsThisMonth == 15 && subStatus.Item2 == "Standard")
                 return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Standard plan." };
 
-            if (plan.NoOfPostsThisMonth < 5 && subStatus.Item2 == "Free" ||
-                plan.NoOfPostsThisMonth < 15 && subStatus.Item2 == "Standard" ||
-                subStatus.Item2 == "Premium")
+            if (plan.NoOfPostsThisMonth < 5 && subStatus.Item2 == "Free" || plan.NoOfPostsThisMonth < 15 && subStatus.Item2 == "Standard" || subStatus.Item2 == "Premium")
             {
                 try
                 {
@@ -147,7 +145,6 @@ public class PostService : IPostService
         }
         return new BaseResponse { Status = false, Message = "Customer not found or subscription inactive." };
     }
-
     public async Task<BaseResponse> EditPostAsync(EditPostDto editPostDto)
     {
         var customer = await _customerRepository.Get(c => c.UserId == editPostDto.UserId);
@@ -267,8 +264,6 @@ public class PostService : IPostService
             return new BaseResponse { Status = false, Message = $"Failed to edit post: {ex.Message}" };
         }
     }
-
-
     public async Task<BaseResponse> DeletePostAsync(string postId, int customerId)
     {
         var customer = await _customerRepository.Get(c => c.Id == customerId);
@@ -309,7 +304,6 @@ public class PostService : IPostService
             return new BaseResponse { Status = false, Message = $"Failed to delete post: {ex.Message}" };
         }
     }
-
     public async Task<PostsResponseModel> GetAllPostsAsync(int customerId, int limit)
     {
         var customer = await _customerRepository.Get(c => c.Id == customerId);
