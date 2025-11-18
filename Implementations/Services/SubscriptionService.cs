@@ -6,6 +6,7 @@ using FullPost.Implementations.Respositories;
 using FullPost.Interfaces.Respositories;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
+using FullPost.Models.Enums;
 namespace FullPost.Implementations.Services;
 public class SubscriptionService : ISubscriptionService
 {
@@ -15,23 +16,18 @@ public class SubscriptionService : ISubscriptionService
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private readonly IUserRepo _userRepo;
     private readonly IEmailService _emailService;
+    private readonly ICustomerService _customerService;
 
-    public SubscriptionService(ISubscriptionPlanRepo subscriptionPlanRepo, IUserSubscriptionRepo userSubscriptionRepo, IConfiguration config, IUserRepo userRepo, IEmailService emailService)
+    public SubscriptionService(ISubscriptionPlanRepo subscriptionPlanRepo, IUserSubscriptionRepo userSubscriptionRepo, IConfiguration config, IUserRepo userRepo, IEmailService emailService, ICustomerService customerService)
     {
         _subscriptionPlanRepo = subscriptionPlanRepo;
         _userSubscriptionRepo = userSubscriptionRepo;
         _userRepo = userRepo;
         _httpClient = new HttpClient();
         _emailService = emailService;
+        _customerService = customerService;
         _paystackSecretKey = config["Paystack:SecretKey"]!;
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _paystackSecretKey);
-    }
-    public async Task<(bool, string)> CheckUserSubscriptionStatus(int userId)
-    {
-        var userSubscription = await _userSubscriptionRepo.GetByExpression(x => x.UserId == userId);
-        var subscription = await _subscriptionPlanRepo.Get(x => x.Id == userSubscription.LastOrDefault().PlanId);
-        if (userSubscription != null && subscription != null && userSubscription.LastOrDefault().EndDate > DateTime.UtcNow) return (true,subscription.NoOfPosts);
-        else return (false, null);
     }
     public async Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId)
     {
@@ -187,6 +183,9 @@ public class SubscriptionService : ISubscriptionService
             IsActive = true
         };
         user.AutoSubscribe = true;
+        if(plan.Name == "Basic") user.SubscriptionPlan = SubscriptionPlans.Basic;
+        if(plan.Name == "Standard") user.SubscriptionPlan = SubscriptionPlans.Standard;
+        if(plan.Name == "Premium") user.SubscriptionPlan = SubscriptionPlans.Premium;
         await _userRepo.Update(user);
         await _userSubscriptionRepo.Create(subscription);
         await _emailService.SendEmailAsync(user.Email, "Subscription Successful", $"You have successfully subscribed to the {plan.Name} plan.");
@@ -324,6 +323,8 @@ public class SubscriptionService : ISubscriptionService
             var plan = await _subscriptionPlanRepo.Get(p => p.Id == userSub.PlanId);
             userSub.IsActive = false;
             userSub.EndDate = DateTime.UtcNow;
+            user.SubscriptionPlan = SubscriptionPlans.Basic;
+            await _customerService.CreatePlanForNewUser(user.Id, user.Email);
             await _userSubscriptionRepo.Update(userSub);
             if (user != null && plan != null)    await _emailService.SendEmailAsync(user.Email,$"{plan.Name} Subscription Payment Failed",$"We could not process your subscription payment. Please update your payment method to continue your subscription and avoid service disruption.");
             
@@ -331,6 +332,22 @@ public class SubscriptionService : ISubscriptionService
         catch (Exception ex)
         {
             Console.WriteLine($"OnSubscriptionPaymentFailed error: {ex}");
+        }
+    }
+    public async Task ResetMonthlyPostCountAsync()
+    {
+        var subscriptions = await _userSubscriptionRepo.GetAll();
+        if (subscriptions == null || !subscriptions.Any())
+            return;
+        foreach (var sub in subscriptions)
+        {
+            if (!sub.IsActive) continue;
+            if (DateTime.UtcNow >= sub.NextResetDate)
+            {
+                sub.NoOfPostsThisMonth = 0;
+                sub.NextResetDate = sub.NextResetDate.AddDays(30);
+                await _userSubscriptionRepo.Update(sub);
+            }
         }
     }
     public async Task ResetToBasic()

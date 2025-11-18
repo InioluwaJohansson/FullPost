@@ -6,6 +6,7 @@ using FullPost.Entities.Identity;
 using FullPost.Interfaces.Respositories;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
+using FullPost.Models.Enums;
 using Microsoft.AspNetCore.Identity;
 using Tweetinvi.Models;
 
@@ -15,12 +16,16 @@ public class CustomerService : ICustomerService
 {
     private readonly ICustomerRepo _customerRepo;
     private readonly IUserRepo _userRepo;
+    private readonly ISubscriptionPlanRepo _subscriptionPlanRepo;
+    private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private readonly Cloudinary _cloudinary;
     private readonly IEmailService _emailService;
-    CustomerService(ICustomerRepo customerRepo, IUserRepo userRepo, IConfiguration config, IEmailService emailService)
+    CustomerService(ICustomerRepo customerRepo, IUserRepo userRepo, ISubscriptionPlanRepo subscriptionPlanRepo, IUserSubscriptionRepo userSubscriptionRepo, IConfiguration config, IEmailService emailService)
     {
         _customerRepo = customerRepo;
         _userRepo = userRepo;
+        _subscriptionPlanRepo = subscriptionPlanRepo;
+        _userSubscriptionRepo = userSubscriptionRepo;
         _emailService = emailService;
         var cloudSettings = config.GetSection("CloudinarySettings").Get<CloudinarySettings>();
 
@@ -46,12 +51,12 @@ public class CustomerService : ICustomerService
                 FirstName = createCustomerDto.FirstName ?? "",
                 LastName = createCustomerDto.LastName ?? "",
                 PictureUrl = "",
-                GoogleId = createCustomerDto.GoogleId,
-                GoogleAccessToken = createCustomerDto.GoogleAccessToken,
-                GoogleRefreshToken = createCustomerDto.GoogleRefreshToken,
-                GoogleTokenExpiry = createCustomerDto.GoogleTokenExpiry
             };
             await _customerRepo.Create(customer);
+            await CreatePlanForNewUser(getUser.Id, createCustomerDto.Email);
+            user.AutoSubscribe = true;
+            user.SubscriptionPlan = SubscriptionPlans.Basic;
+            await _userRepo.Update(user);
             await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
             return new BaseResponse
             {
@@ -90,6 +95,10 @@ public class CustomerService : ICustomerService
                 GoogleTokenExpiry = createCustomerDto.GoogleTokenExpiry
             };
             await _customerRepo.Create(customer);
+            await CreatePlanForNewUser(getUser.Id, createCustomerDto.Email);
+            user.AutoSubscribe = true;
+            user.SubscriptionPlan = SubscriptionPlans.Basic;
+            await _userRepo.Update(user);
             await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
             return new BaseResponse
             {
@@ -145,12 +154,12 @@ public class CustomerService : ICustomerService
             UserName = customer.User.UserName,
             Email = customer.User.Email,
             PictureUrl = customer.PictureUrl,
-            TwitterConnected = customer.TwitterAccessToken != null,
-            FacebookConnected = customer.FacebookAccessToken != null,
-            InstagramConnected = customer.InstagramAccessToken != null,
-            TikTokConnected = customer.TikTokAccessToken != null,
-            LinkedInConnected = customer.LinkedInAccessToken != null,
-            YouTubeConnected = customer.YouTubeAccessToken != null,
+            TwitterUserName = customer.TwitterUsername,
+            FacebookUserName = customer.FacebookPageName,
+            InstagramUserName = customer.InstagramUsername,
+            TikTokUserName = customer.TikTokUsername,
+            LinkedInUserName = customer.LinkedInUsername,
+            YouTubeUserName = customer.YouTubeChannelName,
             GoogleConnected = customer.GoogleAccessToken != null,
         };
 
@@ -207,5 +216,25 @@ public class CustomerService : ICustomerService
             Status = false,
             Message = "Account Already Exists!"
         };
+    }
+    public async Task CreatePlanForNewUser(int userId, string email)
+    {
+        var plan = await _subscriptionPlanRepo.Get(x => x.Name == "Basic");
+        if (plan == null)
+            throw new Exception("Default plan not found");
+        var subscription = new UserSubscription
+        {
+            UserId = userId,
+            PlanId = plan.Id,
+            PaystackSubscriptionCode = null,
+            PaystackEmailToken = null,
+            Email = email,
+            StartDate = DateTime.UtcNow,
+            EndDate = DateTime.UtcNow.AddDays(plan.Interval),
+            NoOfPostsThisMonth = 0,
+            IsActive = true,
+            IsDeleted = false
+        };
+        await _userSubscriptionRepo.Create(subscription);
     }
 }

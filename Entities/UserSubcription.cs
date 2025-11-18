@@ -1,5 +1,7 @@
+using FullPost.Contracts;
+
 namespace FullPost.Entities;
-public class UserSubscription
+public class UserSubscription : AuditableEntity
 {
     public int Id { get; set; }
     public int UserId { get; set; }
@@ -8,6 +10,7 @@ public class UserSubscription
     public int NoOfPostsThisMonth { get; set; }
     public SubscriptionPlan Plan { get; set; } = default!;
     public DateTime StartDate { get; set; } = DateTime.UtcNow;
+    public DateTime NextResetDate { get; set; } = DateTime.UtcNow.AddDays(30);
     public DateTime? EndDate { get; set; }
     public bool IsActive { get; set; } = true;
     public string? PaystackSubscriptionCode { get; set; }

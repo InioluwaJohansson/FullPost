@@ -6,4 +6,6 @@ public class LoginResponse : BaseResponse
     public string UserName { get; set; }
     public string Email { get; set; }
     public string Token { get; set; }
+    public string PlanName { get; set; }
+    public bool AutoSubscribe { get; set; }
 }

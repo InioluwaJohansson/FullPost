@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FullPost.Entities;
 using FullPost.Interfaces.Respositories;
+using FullPost.Interfaces.Rules;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
 using Tweetinvi.Models;
@@ -14,14 +15,13 @@ public class PostService : IPostService
     private readonly IYouTubeService _youtubeService;
     private readonly ITikTokService _tiktokService;
     private readonly ILinkedInService _linkedinService;
-    private readonly ISubscriptionService _subscriptionService;
+    private readonly ISubscriptionPlanRules _subscriptionPlanRules;
     private readonly IPostRepo _repository;
     private readonly ICustomerRepo _customerRepository;
-    private readonly ISubscriptionPlanRepo _subscriptionPlanRepo;
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private readonly IEmailService _emailService;
 
-    public PostService(ITwitterService twitterService,IFacebookService facebookService,IInstagramService instagramService,IYouTubeService youtubeService,ITikTokService tiktokService,ILinkedInService linkedinService,ISubscriptionService subscriptionService,IPostRepo repository,ICustomerRepo customerRepository,ISubscriptionPlanRepo subscriptionPlanRepo,IUserSubscriptionRepo userSubscriptionRepo,IEmailService emailService)
+    public PostService(ITwitterService twitterService,IFacebookService facebookService,IInstagramService instagramService,IYouTubeService youtubeService,ITikTokService tiktokService,ILinkedInService linkedinService,ISubscriptionPlanRules subscriptionPlanRules,IPostRepo repository,ICustomerRepo customerRepository,IUserSubscriptionRepo userSubscriptionRepo,IEmailService emailService)
     {
         _twitterService = twitterService;
         _facebookService = facebookService;
@@ -29,10 +29,9 @@ public class PostService : IPostService
         _youtubeService = youtubeService;
         _tiktokService = tiktokService;
         _linkedinService = linkedinService;
-        _subscriptionService = subscriptionService;
+        _subscriptionPlanRules = subscriptionPlanRules;
         _repository = repository;
         _customerRepository = customerRepository;
-        _subscriptionPlanRepo = subscriptionPlanRepo;
         _userSubscriptionRepo = userSubscriptionRepo;
         _emailService = emailService;
     }
@@ -40,29 +39,31 @@ public class PostService : IPostService
     public async Task<BaseResponse> CreatePostAsync(CreatePostDto createPostDto)
     {
         var customer = await _customerRepository.Get(c => c.UserId == createPostDto.UserId);
-        var subStatus = await _subscriptionService.CheckUserSubscriptionStatus(createPostDto.UserId);
-        var plan = (await _userSubscriptionRepo.GetByExpression(x => x.UserId == createPostDto.UserId)).LastOrDefault();
+        var plan = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(createPostDto.UserId)).LastOrDefault();
 
-        if (customer == null || subStatus.Item1 == false)
+        if (createPostDto != null && customer == null && plan == null && !createPostDto.Platforms.Any() || plan.IsActive == false)
             return new BaseResponse { Status = false, Message = "Customer not found or subscription inactive." };
 
-        if (subStatus.Item1 && plan != null)
+        if (plan.IsActive == true && plan != null)
         {
-            if (plan.NoOfPostsThisMonth == 5 && subStatus.Item2 == "Free")
-                return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Free plan." };
+            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.Name == "Basic")
+                return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Basic plan." };
 
-            if (plan.NoOfPostsThisMonth == 15 && subStatus.Item2 == "Standard")
+            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.Name == "Standard")
                 return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Standard plan." };
 
-            if (plan.NoOfPostsThisMonth < 5 && subStatus.Item2 == "Free" || plan.NoOfPostsThisMonth < 15 && subStatus.Item2 == "Standard" || subStatus.Item2 == "Premium")
+            if (plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.Name == "Basic" || plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.Name == "Standard" || plan.Plan.Name == "Premium")
             {
+                var allowedPlatforms = await _subscriptionPlanRules.GetAllowedPlatformsForUser(plan.Plan.Id, createPostDto.UserId);
+                if (allowedPlatforms == null || !allowedPlatforms.Any())
+                    return new BaseResponse (){Status = false, Message = "User has no allowed platforms."};
+                var validPlatforms = createPostDto.Platforms.Where(p => allowedPlatforms.Contains(p.ToLower())).ToList();
                 try
                 {
-                    createPostDto.Platforms ??= new List<string> { "twitter", "facebook", "instagram" };
                     List<string> uploadedUrls = new();
 
                     SocialPostResult? resultT = null, resultF = null, resultY = null, resultI =null, resultLi = null, resultTik = null;
-                    foreach (var platform in createPostDto.Platforms)
+                    foreach (var platform in validPlatforms)
                     {
                         switch (platform.ToLower())
                         {

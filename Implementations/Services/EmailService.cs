@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Mail;
+using SendGrid;
+using SendGrid.Helpers.Mail;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
 using Microsoft.Extensions.Options;
@@ -19,8 +21,25 @@ public class EmailService : IEmailService
     {
         _config = config;
     }
-
-    public async Task<bool> SendEmailAsync(string to, string subject, string body, bool isHtml = true)
+    
+    public async Task<bool> SendEmailAsync(string to, string subject,string body, bool isHtml = true)
+    {
+        var apiKey = _config["Twillo:ApiKey"];
+        var client = new SendGridClient(apiKey);
+        var from = new EmailAddress("fullpost@support.com", _config["App:Name"]);
+        var emailSubject = subject;
+        var emailTo = new EmailAddress(to, "User");
+        var plainTextContent = body;
+        var htmlContent = "<strong>" + body + "</strong>";
+        var msg = MailHelper.CreateSingleEmail(from, emailTo, emailSubject, plainTextContent, htmlContent);
+        var response = await client.SendEmailAsync(msg);
+        if(response.StatusCode == HttpStatusCode.Accepted || response.StatusCode == HttpStatusCode.OK)
+        {
+            return true;
+        }
+        return false;
+    }
+    public async Task<bool> SendEmailAsyncGmail(string to, string subject, string body, bool isHtml = true)
     {
         var clientId = _config["Google:ClientId"];
         var clientSecret = _config["Google:ClientSecret"];

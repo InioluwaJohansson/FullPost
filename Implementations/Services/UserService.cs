@@ -8,11 +8,13 @@ public class UserService : IUserService
 {
     private readonly ICustomerRepo _customerRepo;
     private readonly IUserRepo _userRepo;
+    private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private IEmailService _emailService;
-    UserService(ICustomerRepo customerRepo, IUserRepo userRepo, IEmailService emailService)
+    UserService(ICustomerRepo customerRepo, IUserRepo userRepo, IUserSubscriptionRepo userSubscriptionRepo, IEmailService emailService)
     {
         _customerRepo = customerRepo;
         _userRepo = userRepo;
+	_userSubscriptionRepo = userSubscriptionRepo;
         _emailService = emailService;
     }
     public async Task<LoginResponse> Login(string email, string password)
@@ -20,16 +22,20 @@ public class UserService : IUserService
         var user = await _userRepo.Get(x => x.Email.Equals(email));
         if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
         {
+	    var planName = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(user.Id)).LastOrDefault().Plan.Name;
             return new LoginResponse()
             {
                 UserId = user.Id,
                 Email = user.Email,
                 UserName = user.UserName,
+		PlanName = planName ?? null,
+		AutoSubscribe = user.AutoSubscribe,
                 Status = true
             };
         }
         return new LoginResponse()
         {
+	    Message = "Invalid Email or Password",
             Status = false
         };
     }
@@ -42,16 +48,20 @@ public class UserService : IUserService
             customer.GoogleAccessToken = request.GoogleAccessToken;
             customer.GoogleTokenExpiry = request.GoogleTokenExpiry;
             await _customerRepo.Update(customer);
+            var planName = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(user.Id)).LastOrDefault().Plan.Name;
             return new LoginResponse()
             {
                 UserId = user.Id,
                 Email = user.Email,
                 UserName = user.UserName,
+		PlanName = planName ?? null,
+		AutoSubscribe = user.AutoSubscribe,
                 Status = true
             };
         }
         return new LoginResponse()
         {
+	    Message = "Invalid Credentials",
             Status = false
         };
     }

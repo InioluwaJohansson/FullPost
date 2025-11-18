@@ -31,12 +31,12 @@ public class GetCustomerDto
     public string Email { get; set; }
     public string PictureUrl { get; set; }
     public bool GoogleConnected { get; set; }
-    public bool TwitterConnected { get; set; }
-    public bool FacebookConnected { get; set; }
-    public bool InstagramConnected { get; set; }
-    public bool YouTubeConnected { get; set; }
-    public bool TikTokConnected { get; set; }
-    public bool LinkedInConnected { get; set; }
+    public string TwitterUserName { get; set; }
+    public string FacebookUserName { get; set; }
+    public string InstagramUserName { get; set; }
+    public string YouTubeUserName { get; set; }
+    public string TikTokUserName { get; set; }
+    public string LinkedInUserName { get; set; }
 }
 public class CustomerResponse : BaseResponse
 {

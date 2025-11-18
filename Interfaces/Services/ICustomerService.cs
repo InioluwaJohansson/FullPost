@@ -12,4 +12,5 @@ public interface ICustomerService
     Task<BaseResponse> UpdateCustomer(UpdateCustomerDto updateCustomerDto);
     Task<CustomerResponse> GetCustomerById(int userId);
     Task<BaseResponse> DeleteAccount(int userId);
+    Task CreatePlanForNewUser(int userId, string email);
 }
