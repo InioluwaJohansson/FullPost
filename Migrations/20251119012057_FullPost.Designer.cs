@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FullPost.Migrations
 {
     [DbContext(typeof(FullPostContext))]
-    [Migration("20251119001716_FullPost")]
+    [Migration("20251119012057_FullPost")]
     partial class FullPost
     {
         /// <inheritdoc />

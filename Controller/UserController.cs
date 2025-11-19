@@ -117,4 +117,10 @@ public class AuthController : Controller
         }
         return BadRequest(forgotResponse);
     }
+    [HttpPost("checkUserName")]
+    public async Task<IActionResult> CheckUserName(int userId, string username)
+    {
+        return Ok(await _userService.CheckUserName(username, userId));
+
+    }
 }

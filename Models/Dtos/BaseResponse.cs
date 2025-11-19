@@ -11,6 +11,11 @@ public class TwitterKeys
     public string ApiKey { get; set; }
     public string ApiSecret { get; set; }
 }
+public class InstagramSettings
+{
+    public string ClientId { get; set; }
+    public string ClientSecret { get; set; }
+}
 public class SocialPostResult
 {
     public bool Success { get; set; }
@@ -41,7 +46,6 @@ public class ResetPasswordRequest
 }
 public class BaseResponse
 {
-    public int UserId { get; set; }
     public string Message { get; set; }
     public bool Status { get; set; }
 }

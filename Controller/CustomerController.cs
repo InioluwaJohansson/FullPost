@@ -65,7 +65,7 @@ public class CustomerController : Controller
         {
             Audience = new[] { clientId }
         });
-        var customer = new CreateCustomerDto
+        var customer = new CreateGoogleCustomerDto
         {
             Email = payload.Email,
             FirstName = payload.Name,
@@ -97,8 +97,11 @@ public class CustomerController : Controller
     [HttpPut("UpdateCustomer")]
     public async Task<IActionResult> UpdateCustomer([FromForm] UpdateCustomerDto updateCustomerDto)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != updateCustomerDto.userId)
+            return Forbid("You are not allowed to access this user's data.");
 
         var customer = await _customerService.UpdateCustomer(updateCustomerDto);
         if (customer.Status == true)
@@ -111,8 +114,11 @@ public class CustomerController : Controller
     [HttpGet("GetCustomerById")]
     public async Task<IActionResult> GetCustomerById(int userId)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
 
         var customer = await _customerService.GetCustomerById(userId);
         if (customer.Status == true)
@@ -125,6 +131,11 @@ public class CustomerController : Controller
     [HttpPut("DeleteAccount")]
     public async Task<IActionResult> DeleteAccount(int userId)
     {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
         var customer = await _customerService.DeleteAccount(userId);
         if (customer.Status == true)
         {

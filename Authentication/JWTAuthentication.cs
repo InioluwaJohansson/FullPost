@@ -7,11 +7,9 @@ using Microsoft.IdentityModel.Tokens;
 namespace FullPost.Authentication;
 public class JWTAuthentication : IJWTAuthentication
 {
-    public string _key;
     IConfiguration config;
-    public JWTAuthentication(string key, IConfiguration configuration)
+    public JWTAuthentication(IConfiguration configuration)
     {
-        _key = key;
         config = configuration;
     }
     public string GenerateToken(LoginResponse loginResponse)
@@ -20,7 +18,7 @@ public class JWTAuthentication : IJWTAuthentication
         var tokenKey = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
         var claims = new List<Claim>();
         var tokenHandler = new JwtSecurityTokenHandler();
-        claims.Add(new Claim(ClaimTypes.Name, loginResponse.UserId.ToString()));
+        claims.Add(new Claim(ClaimTypes.NameIdentifier, loginResponse.UserId.ToString()));
         claims.Add(new Claim(ClaimTypes.Email, loginResponse.Email));
         // foreach (var role in loginResponse.Roles)
         // {

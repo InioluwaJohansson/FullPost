@@ -8,7 +8,7 @@ namespace FullPost.Interfaces.Services;
 public interface ICustomerService
 {
     Task<BaseResponse> CreateCustomer(CreateCustomerDto createCustomerDto);
-    Task<BaseResponse> CreateCustomerWithGoogle(CreateCustomerDto createCustomerDto);
+    Task<BaseResponse> CreateCustomerWithGoogle(CreateGoogleCustomerDto createCustomerDto);
     Task<BaseResponse> UpdateCustomer(UpdateCustomerDto updateCustomerDto);
     Task<CustomerResponse> GetCustomerById(int userId);
     Task<BaseResponse> DeleteAccount(int userId);

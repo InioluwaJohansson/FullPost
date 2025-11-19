@@ -8,6 +8,7 @@ using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
+using Microsoft.Extensions.Options;
 
 namespace FullPost.Implementations.Services;
 
@@ -16,13 +17,15 @@ public class InstagramService : IInstagramService
     private readonly Cloudinary _cloudinary;
     private readonly HttpClient _httpClient;
 
-    public InstagramService(string cloudName, string cloudApiKey, string cloudApiSecret)
+    public InstagramService(IConfiguration config)
     {
-        var account = new Account(cloudName, cloudApiKey, cloudApiSecret);
+        var cloudSettings = config.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+
+        var account = new Account(cloudSettings.CloudName, cloudSettings.ApiKey, cloudSettings.ApiSecret);
+
         _cloudinary = new Cloudinary(account);
         _httpClient = new HttpClient();
     }
-
     private async Task<string> UploadToCloudinaryAsync(IFormFile file)
     {
         RawUploadResult uploadResult;

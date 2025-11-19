@@ -20,7 +20,7 @@ public class CustomerService : ICustomerService
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private readonly Cloudinary _cloudinary;
     private readonly IEmailService _emailService;
-    CustomerService(ICustomerRepo customerRepo, IUserRepo userRepo, ISubscriptionPlanRepo subscriptionPlanRepo, IUserSubscriptionRepo userSubscriptionRepo, IConfiguration config, IEmailService emailService)
+    public CustomerService(ICustomerRepo customerRepo, IUserRepo userRepo, ISubscriptionPlanRepo subscriptionPlanRepo, IUserSubscriptionRepo userSubscriptionRepo, IConfiguration config, IEmailService emailService)
     {
         _customerRepo = customerRepo;
         _userRepo = userRepo;
@@ -41,6 +41,7 @@ public class CustomerService : ICustomerService
             var user = new User()
             {
                 Email = createCustomerDto.Email,
+                UserName = "",
                 Password = BCrypt.Net.BCrypt.HashPassword(createCustomerDto.Password)
             };
             await _userRepo.Create(user);
@@ -54,7 +55,7 @@ public class CustomerService : ICustomerService
             };
             await _customerRepo.Create(customer);
             await CreatePlanForNewUser(getUser.Id, createCustomerDto.Email);
-            user.AutoSubscribe = true;
+            user.AutoSubscribe = false;
             user.SubscriptionPlan = SubscriptionPlans.Basic;
             await _userRepo.Update(user);
             await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
@@ -71,7 +72,7 @@ public class CustomerService : ICustomerService
             Message = "Account Already Exists!"
         };
     }
-    public async Task<BaseResponse> CreateCustomerWithGoogle(CreateCustomerDto createCustomerDto)
+    public async Task<BaseResponse> CreateCustomerWithGoogle(CreateGoogleCustomerDto createCustomerDto)
     {
         var checkMail = await _userRepo.Get(x => x.Email.Equals(createCustomerDto.Email));
         if (createCustomerDto != null && checkMail == null)
@@ -96,7 +97,7 @@ public class CustomerService : ICustomerService
             };
             await _customerRepo.Create(customer);
             await CreatePlanForNewUser(getUser.Id, createCustomerDto.Email);
-            user.AutoSubscribe = true;
+            user.AutoSubscribe = false;
             user.SubscriptionPlan = SubscriptionPlans.Basic;
             await _userRepo.Update(user);
             await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
@@ -160,7 +161,7 @@ public class CustomerService : ICustomerService
             TikTokUserName = customer.TikTokUsername,
             LinkedInUserName = customer.LinkedInUsername,
             YouTubeUserName = customer.YouTubeChannelName,
-            GoogleConnected = customer.GoogleAccessToken != null,
+            GoogleConnected = !string.IsNullOrEmpty(customer.GoogleAccessToken),
         };
 
         return new CustomerResponse
@@ -202,8 +203,8 @@ public class CustomerService : ICustomerService
             customer.FirstName = updateCustomerDto.FirstName ?? customer.FirstName;
             customer.LastName = updateCustomerDto.LastName ?? customer.LastName;
             customer.User.UserName = updateCustomerDto.UserName ?? customer.User.UserName;
+            customer.User.AutoSubscribe = true;
             customer.PictureUrl = imgUrl ?? customer.PictureUrl;
-            customer.User.AutoSubscribe = updateCustomerDto.AutoSubscribe;
             await _customerRepo.Update(customer);
             return new BaseResponse
             {
@@ -222,6 +223,11 @@ public class CustomerService : ICustomerService
         var plan = await _subscriptionPlanRepo.Get(x => x.Name == "Basic");
         if (plan == null)
             throw new Exception("Default plan not found");
+        int addDays;
+        if (plan.Interval == SubscriptionInterval.Monthly)
+            addDays = 30;
+        else
+            addDays = 365;
         var subscription = new UserSubscription
         {
             UserId = userId,
@@ -230,7 +236,7 @@ public class CustomerService : ICustomerService
             PaystackEmailToken = null,
             Email = email,
             StartDate = DateTime.UtcNow,
-            EndDate = DateTime.UtcNow.AddDays(plan.Interval),
+            EndDate = DateTime.UtcNow.AddDays(addDays),
             NoOfPostsThisMonth = 0,
             IsActive = true,
             IsDeleted = false

@@ -8,4 +8,5 @@ public interface IUserService
     Task<LoginResponse> GoogleLoginAsync(GoogleLoginRequest request);
     Task<BaseResponse> ForgotPassword(string email);
     Task<BaseResponse> ResetPassword(ResetPasswordRequest request);
+    Task<bool> CheckUserName(string userName, int userId);
 }

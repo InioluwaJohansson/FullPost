@@ -27,8 +27,11 @@ public class PostController : Controller
     [HttpPost("create")]
     public async Task<IActionResult> CreatePost([FromForm] CreatePostDto request)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != request.UserId)
+            return Forbid("You are not allowed to access this user's data.");
         
         var result = await _postService.CreatePostAsync(request);
         return result.Status ? Ok(result) : BadRequest(result);
@@ -37,8 +40,11 @@ public class PostController : Controller
     [HttpPut("edit/{postId}")]
     public async Task<IActionResult> EditPost([FromForm] EditPostDto request)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != request.UserId)
+            return Forbid("You are not allowed to access this user's data.");
 
         var result = await _postService.EditPostAsync(request);
         return result.Status ? Ok(result) : BadRequest(result);
@@ -47,8 +53,11 @@ public class PostController : Controller
     [HttpDelete("delete/{postId}")]
     public async Task<IActionResult> DeletePost(string postId, int userId)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
 
         var result = await _postService.DeletePostAsync(postId, userId);
         return result.Status ? Ok(result) : BadRequest(result);
@@ -57,8 +66,11 @@ public class PostController : Controller
     [HttpGet("allposts/{userId}")]
     public async Task<IActionResult> GetAllPosts(int userId)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
         
         var result = await _postService.GetAllPostsAsync(userId);
         return Ok(result);

@@ -5,7 +5,7 @@ public class CreateSubscriptionDto
 {
     public string Name { get; set; } = default!;
     public decimal Amount { get; set; }
-    public int Interval { get; set; }
+    public SubscriptionInterval Interval { get; set; }
     public int NoOfPosts { get; set; }
     public string? Description { get; set; }
     public SubscriptionPlans PlanType { get; set; }
@@ -15,7 +15,7 @@ public class ShortUserSubscriptionDto
     public int Id { get; set; }
     public string Name { get; set; } = default!;
     public decimal Price { get; set; }
-    public int Interval { get; set; }
+    public SubscriptionInterval Interval { get; set; }
     public int NoOfPosts { get; set; }
     public string? Description { get; set; }
     public SubscriptionPlans PlanType { get; set; }
@@ -24,15 +24,11 @@ public class SubscriptionDto
 {
     public int MonthlyId { get; set; }
     public int YearlyId { get; set; }
-    public string Name { get; set; } = default!;
+    public string Name { get; set; } 
     public decimal MonthlyPrice { get; set; }
-    public int MonthlyInterval { get; set; }
     public decimal YearlyPrice { get; set; }
-    public int YearlyInterval { get; set; }
     public int NoOfPosts { get; set; }
     public string? Description { get; set; }
-    public string MonthlyLink { get; set; }
-    public string YearlyLink { get; set; }
 }
 public class UserSubscriptionDto
 {

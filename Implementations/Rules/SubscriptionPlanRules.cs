@@ -8,7 +8,7 @@ public class SubscriptionPlanRules : ISubscriptionPlanRules
     private readonly ISubscriptionPlanRepo _subscriptionPlanRepo;
     private readonly ICustomerRepo _customerRepo;
 
-    SubscriptionPlanRules(ISubscriptionPlanRepo subscriptionPlanRepo, ICustomerRepo customerRepo)
+    public SubscriptionPlanRules(ISubscriptionPlanRepo subscriptionPlanRepo, ICustomerRepo customerRepo)
     {
         _subscriptionPlanRepo = subscriptionPlanRepo;
         _customerRepo = customerRepo;

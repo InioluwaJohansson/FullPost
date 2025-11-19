@@ -10,7 +10,7 @@ public class UserService : IUserService
     private readonly IUserRepo _userRepo;
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private IEmailService _emailService;
-    UserService(ICustomerRepo customerRepo, IUserRepo userRepo, IUserSubscriptionRepo userSubscriptionRepo, IEmailService emailService)
+    public UserService(ICustomerRepo customerRepo, IUserRepo userRepo, IUserSubscriptionRepo userSubscriptionRepo, IEmailService emailService)
     {
         _customerRepo = customerRepo;
         _userRepo = userRepo;
@@ -102,5 +102,11 @@ public class UserService : IUserService
             Status = false,
             Message = $"Failed to reset password!"
         };
+    }
+    public async Task<bool> CheckUserName(string userName, int userId){
+        var user = await _userRepo.GetByExpression(x => x.UserName.StartsWith(userName));
+        if(user.FirstOrDefault()?.Id == userId) return true;
+        if(user == null) return true;
+        return false;
     }
 }

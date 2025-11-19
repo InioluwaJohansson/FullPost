@@ -6,6 +6,12 @@ public class CreateCustomerDto
     public string Password { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
+}
+public class CreateGoogleCustomerDto
+{
+    public string Email { get; set; }
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
     public string PictureUrl { get; set; }
     public string GoogleId { get; set; }
     public string GoogleAccessToken { get; set; }
@@ -18,8 +24,7 @@ public class UpdateCustomerDto
     public string FirstName { get; set; }
     public string LastName { get; set; }
     public string UserName { get; set; }
-    public bool AutoSubscribe { get; set; }
-    public IFormFile PictureUrl { get; set; }
+    public IFormFile? PictureUrl { get; set; }
 }
 public class GetCustomerDto
 {

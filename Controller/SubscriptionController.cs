@@ -39,31 +39,14 @@ public class SubscriptionController : Controller
         return Ok(plans);
     }
     [Authorize]
-    [HttpPost("subscribe")]
-    public async Task<IActionResult> Subscribe(int userId, int planId)
-    {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
-
-        var result = await _subscriptionService.SubscribeUserAsync(userId, planId);
-        return result.Status ? Ok(result) : BadRequest(result);
-    }
-    [Authorize]
-    [HttpPost("verifyAndActivateSubscriptionAsync")]
-    public async Task<IActionResult> VerifyAndActivateSubscriptionAsync(string reference, int userId, int planId)
-    {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
-
-        var result = await _subscriptionService.VerifyAndActivateSubscriptionAsync(reference, userId, planId);
-        return result.Status ? Ok(result) : BadRequest(result);
-    }
-    [Authorize]
     [HttpPost("cancel/{userId}/{subId}")]
     public async Task<IActionResult> CancelUserSubscriptionAsync(int userId, int subId)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
 
         var result = await _subscriptionService.CancelUserSubscriptionAsync(userId, subId);
         return result.Status ? Ok(result) : BadRequest(result);
@@ -72,8 +55,11 @@ public class SubscriptionController : Controller
     [HttpPost("generatePaymentLink/{userId}/{planId}")]
     public async Task<IActionResult> GenerateSubscriptionPaymentLink(int userId, int planId)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
 
         var result = await _subscriptionService.GenerateSubscriptionPaymentLink(userId, planId);
         return result != null ? Ok(result) : BadRequest("Failed to generate payment link.");
@@ -82,8 +68,11 @@ public class SubscriptionController : Controller
     [HttpGet("user/{userId}")]
     public async Task<IActionResult> GetUserSubscriptions(int userId)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
         
         var result = await _subscriptionService.GetUserSubscriptionsAsync(userId);
         return Ok(result);
