@@ -102,9 +102,12 @@ public class UserService : IUserService
         };
     }
     public async Task<bool> CheckUserName(string userName, int userId){
-        var user = await _userRepo.GetByExpression(x => x.UserName.StartsWith(userName));
-        if(user.FirstOrDefault()?.Id == userId) return true;
-        if(user == null) return true;
+        var users = await _userRepo.GetByExpression(x => x.UserName == userName);
+        if (!users.Any()) 
+            return true;
+        var existingUser = users.First();
+        if (existingUser.Id == userId)
+            return true;
         return false;
     }
 }
