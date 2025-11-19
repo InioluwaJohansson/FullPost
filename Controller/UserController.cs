@@ -6,6 +6,7 @@ using Google.Apis.Auth;
 using FullPost.Models.DTOs;
 using FullPost.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace FullPost.Controllers;
 
@@ -122,6 +123,11 @@ public class AuthController : Controller
     [HttpPost("checkUserName")]
     public async Task<IActionResult> CheckUserName(int userId, string username)
     {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
         return Ok(await _userService.CheckUserName(username, userId));
 
     }
