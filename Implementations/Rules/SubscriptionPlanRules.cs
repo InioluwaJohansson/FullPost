@@ -29,7 +29,6 @@ public class SubscriptionPlanRules : ISubscriptionPlanRules
         var connectedPlatforms = new List<string>();
         var user = await _customerRepo.Get(x => x.UserId == userId);
         var plan = await _subscriptionPlanRepo.Get(x => x.Id == planId);
-        var planType = new SubscriptionPlans ();
         if (plan != null && user != null)
         {
             if(user.TwitterUsername != "") connectedPlatforms.Add("twitter");
@@ -38,13 +37,9 @@ public class SubscriptionPlanRules : ISubscriptionPlanRules
             if(user.FacebookPageName != "") connectedPlatforms.Add("facebook");
             if(user.TikTokUsername != "") connectedPlatforms.Add("twitter");
             if(user.LinkedInUsername != "") connectedPlatforms.Add("linkedin");
-            if(plan.Name == "Basic") planType = SubscriptionPlans.Basic;
-            else if(plan.Name == "Standard") planType = SubscriptionPlans.Standard;
-            else if(plan.Name == "Premium") planType = SubscriptionPlans.Premium;
-            var limit = SubscriptionPlanRules.PlatformLimit[planType];
-
-            if (plan.Name == "Basic") return connectedPlatforms.Where(p => SubscriptionPlanRules.BasicPlatforms.Contains(p)).ToList();
-            if (plan.Name == "Standard") return connectedPlatforms.Take(limit).ToList();
+            var limit = SubscriptionPlanRules.PlatformLimit[plan.PlanType];
+            if (plan.PlanType == SubscriptionPlans.Basic) return connectedPlatforms.Where(p => SubscriptionPlanRules.BasicPlatforms.Contains(p)).ToList();
+            if (plan.PlanType == SubscriptionPlans.Standard) return connectedPlatforms.Take(limit).ToList();
             return connectedPlatforms;
         }
         return new List<string>();

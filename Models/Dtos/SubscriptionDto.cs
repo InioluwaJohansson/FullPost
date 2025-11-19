@@ -1,13 +1,16 @@
+using FullPost.Models.Enums;
+
 namespace FullPost.Models.DTOs;
 public class CreateSubscriptionDto
 {
     public string Name { get; set; } = default!;
     public decimal Amount { get; set; }
     public int Interval { get; set; }
-    public string? NoOfPosts { get; set; }
+    public int NoOfPosts { get; set; }
     public string? Description { get; set; }
+    public SubscriptionPlans PlanType { get; set; }
 }
-public class SubscriptionDto
+public class ShortUserSubscriptionDto
 {
     public int Id { get; set; }
     public string Name { get; set; } = default!;
@@ -15,11 +18,26 @@ public class SubscriptionDto
     public int Interval { get; set; }
     public int NoOfPosts { get; set; }
     public string? Description { get; set; }
+    public SubscriptionPlans PlanType { get; set; }
+}
+public class SubscriptionDto
+{
+    public int MonthlyId { get; set; }
+    public int YearlyId { get; set; }
+    public string Name { get; set; } = default!;
+    public decimal MonthlyPrice { get; set; }
+    public int MonthlyInterval { get; set; }
+    public decimal YearlyPrice { get; set; }
+    public int YearlyInterval { get; set; }
+    public int NoOfPosts { get; set; }
+    public string? Description { get; set; }
+    public string MonthlyLink { get; set; }
+    public string YearlyLink { get; set; }
 }
 public class UserSubscriptionDto
 {
     public int Id { get; set; }
-    public SubscriptionDto Plan { get; set; }
+    public ShortUserSubscriptionDto Plan { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public bool IsActive { get; set; }
@@ -34,4 +52,8 @@ public class UserSubscriptionResponseModel : BaseResponse
 public class SubscriptionPlanResponseModel : BaseResponse
 {
     public ICollection<SubscriptionDto> Data { get; set; } = new HashSet<SubscriptionDto>();
+}
+public class AdminSubscriptionPlanResponseModel : BaseResponse
+{
+    public ICollection<ShortUserSubscriptionDto> Data { get; set; } = new HashSet<ShortUserSubscriptionDto>();
 }

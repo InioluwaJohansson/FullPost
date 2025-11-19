@@ -22,15 +22,10 @@ public class SubscriptionController : Controller
     {
         _subscriptionService = subscriptionService;
     }
-    [Authorize]
     [HttpPost("create")]
     public async Task<IActionResult> CreatePlan([FromBody] CreateSubscriptionDto createSubscriptionDto)
-    {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
-        
+    {        
         var result = await _subscriptionService.CreatePlanAsync(createSubscriptionDto);
-
         return result.Status ? Ok(result) : BadRequest(result);
     }
     [Authorize]
@@ -74,6 +69,16 @@ public class SubscriptionController : Controller
         return result.Status ? Ok(result) : BadRequest(result);
     }
     [Authorize]
+    [HttpPost("generatePaymentLink/{userId}/{planId}")]
+    public async Task<IActionResult> GenerateSubscriptionPaymentLink(int userId, int planId)
+    {
+        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (user == null) return Unauthorized();
+
+        var result = await _subscriptionService.GenerateSubscriptionPaymentLink(userId, planId);
+        return result != null ? Ok(result) : BadRequest("Failed to generate payment link.");
+    }
+    [Authorize]
     [HttpGet("user/{userId}")]
     public async Task<IActionResult> GetUserSubscriptions(int userId)
     {
@@ -81,6 +86,12 @@ public class SubscriptionController : Controller
         if (user == null) return Unauthorized();
         
         var result = await _subscriptionService.GetUserSubscriptionsAsync(userId);
+        return Ok(result);
+    }
+    [HttpGet("admin/")]
+    public async Task<IActionResult> GetAdminSubscriptionsAsync()
+    {
+        var result = await _subscriptionService.GetAdminSubscriptionsAsync();
         return Ok(result);
     }
 }

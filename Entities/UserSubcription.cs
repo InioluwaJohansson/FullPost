@@ -11,9 +11,8 @@ public class UserSubscription : AuditableEntity
     public SubscriptionPlan Plan { get; set; } = default!;
     public DateTime StartDate { get; set; } = DateTime.UtcNow;
     public DateTime NextResetDate { get; set; } = DateTime.UtcNow.AddDays(30);
-    public DateTime? EndDate { get; set; }
+    public DateTime EndDate { get; set; }
     public bool IsActive { get; set; } = true;
     public string? PaystackSubscriptionCode { get; set; }
     public string? PaystackEmailToken { get; set; }
-    
 }

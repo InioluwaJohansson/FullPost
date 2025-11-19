@@ -1,3 +1,5 @@
+using FullPost.Models.Enums;
+
 namespace FullPost.Entities;
 public class SubscriptionPlan
 {
@@ -8,4 +10,5 @@ public class SubscriptionPlan
     public int NoOfPosts { get; set; }
     public string? Description { get; set; }
     public string? PaystackPlanCode { get; set; }
+    public SubscriptionPlans PlanType { get; set; } 
 }   
