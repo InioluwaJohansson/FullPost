@@ -19,17 +19,16 @@ public class UserService : IUserService
     }
     public async Task<LoginResponse> Login(string email, string password)
     {
-        var user = await _userRepo.Get(x => x.Email.Equals(email));
+        var user = await _userRepo.Get(x => x.Email.Equals(email) || x.UserName.Equals(email));
         if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
         {
-	    var planName = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(user.Id)).LastOrDefault().Plan.Name;
             return new LoginResponse()
             {
                 UserId = user.Id,
                 Email = user.Email,
                 UserName = user.UserName,
-		PlanName = planName ?? null,
-		AutoSubscribe = user.AutoSubscribe,
+                PlanName = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(user.Id)).LastOrDefault().Plan.Name ?? null,
+                AutoSubscribe = user.AutoSubscribe,
                 Status = true
             };
         }
@@ -48,14 +47,13 @@ public class UserService : IUserService
             customer.GoogleAccessToken = request.GoogleAccessToken;
             customer.GoogleTokenExpiry = request.GoogleTokenExpiry;
             await _customerRepo.Update(customer);
-            var planName = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(user.Id)).LastOrDefault().Plan.Name;
             return new LoginResponse()
             {
                 UserId = user.Id,
                 Email = user.Email,
                 UserName = user.UserName,
-		PlanName = planName ?? null,
-		AutoSubscribe = user.AutoSubscribe,
+                PlanName = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(user.Id)).LastOrDefault().Plan.Name ?? null,
+                AutoSubscribe = user.AutoSubscribe,
                 Status = true
             };
         }

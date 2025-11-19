@@ -33,6 +33,10 @@ public class EmailService : IEmailService
         var htmlContent = "<strong>" + body + "</strong>";
         var msg = MailHelper.CreateSingleEmail(from, emailTo, emailSubject, plainTextContent, htmlContent);
         var response = await client.SendEmailAsync(msg);
+        Console.WriteLine("Email Response:");
+        Console.WriteLine(response.StatusCode);
+        Console.WriteLine(await response.Body.ReadAsStringAsync());
+        Console.WriteLine(response.ToString());
         if(response.StatusCode == HttpStatusCode.Accepted || response.StatusCode == HttpStatusCode.OK)
         {
             return true;
