@@ -5,6 +5,7 @@ using System.Text.Json;
 using Google.Apis.Auth;
 using FullPost.Models.DTOs;
 using FullPost.Authentication;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FullPost.Controllers;
 
@@ -117,6 +118,7 @@ public class AuthController : Controller
         }
         return BadRequest(forgotResponse);
     }
+    [Authorize]
     [HttpPost("checkUserName")]
     public async Task<IActionResult> CheckUserName(int userId, string username)
     {
