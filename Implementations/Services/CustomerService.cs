@@ -61,7 +61,6 @@ public class CustomerService : ICustomerService
             await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
             return new BaseResponse
             {
-                UserId = getUser.Id,
                 Status = true,
                 Message = "Account Created!"
             };
@@ -103,7 +102,6 @@ public class CustomerService : ICustomerService
             await _emailService.SendEmailAsync(createCustomerDto.Email, "Account Created", "Your account has been successfully created!");
             return new BaseResponse
             {
-                UserId = getUser.Id,
                 Status = true,
                 Message = "Account Created!"
             };
