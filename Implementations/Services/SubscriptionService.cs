@@ -31,28 +31,37 @@ public class SubscriptionService : ISubscriptionService
     }
     public async Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId)
     {
-        var userSub = await _userSubscriptionRepo.Get(x => x.Id == subId && x.IsDeleted == false);
-        if (userSub == null)
-            return new BaseResponse { Status = false, Message = "User has no active subscription." };
-        if (string.IsNullOrWhiteSpace(userSub.PaystackSubscriptionCode) ||  string.IsNullOrWhiteSpace(userSub.PaystackEmailToken))
-            return new BaseResponse { Status = false, Message = "Missing Paystack subscription credentials." };
-        var payload = new
-        {
-            code = userSub.PaystackSubscriptionCode,
-            token = userSub.PaystackEmailToken
-        };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync("https://api.paystack.co/subscription/disable", content);
-        var result = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
-            return new BaseResponse { Status = false, Message = $"Failed to cancel subscription: {result}" };
-        userSub.IsActive = false;
-        userSub.EndDate = DateTime.UtcNow;
-        await _userSubscriptionRepo.Update(userSub);
         var user = await _userRepo.Get(u => u.Id == userId);
-        if (user != null)
+        var userSub = await _userSubscriptionRepo.Get(x => x.Id == subId && x.IsDeleted == false);
+        if (userSub != null  && user != null)
+        {
+            userSub.IsActive = false;
+            userSub.EndDate = DateTime.UtcNow;
+            await _userSubscriptionRepo.Update(userSub);
             await _emailService.SendEmailAsync(user.Email, "Subscription Cancelled", "Your subscription has been successfully cancelled.");
-        return new BaseResponse { Status = true, Message = "Subscription cancelled successfully." };
+            return new BaseResponse { Status = true, Message = "Subscription cancelled successfully." }; 
+        }
+        return new BaseResponse { Status = false, Message = "User has no active subscription." };
+    }
+    public async Task<BaseResponse> EnableCancelUserAutoSubscribe(int userId)
+    {
+        var user = await _userRepo.Get(u => u.Id == userId);
+        if(user != null)
+        {
+            if(user.AutoSubscribe == true)
+            {
+                user.AutoSubscribe = false;
+                await _userRepo.Update(user);
+                return new BaseResponse { Status = true, Message = "Auto subscription disabled" };
+            } 
+            if(user.AutoSubscribe == false)
+            {
+                user.AutoSubscribe = true;
+                await _userRepo.Update(user);
+                return new BaseResponse { Status = true, Message = "Auto subscription enabled." };
+            }  
+        }
+        return new BaseResponse { Status = false, Message = "User cannot be found." };
     }
     public async Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto)
     {
@@ -231,23 +240,32 @@ public class SubscriptionService : ISubscriptionService
     {
         try
         {
+            Console.WriteLine(data.data);
             var customerEmail = (string)data.data.customer.email;
-            var subscriptionCode = (string)data.data.subscription.subscription_code;
-            var emailToken = (string)data.data.subscription.email_token;
-            var planCode = (string)data.data.plan.plan_code;
-            var user = await _userRepo.Get(u => u.Email == customerEmail);
+            var subscriptionCode = (string)data.data.authorization?.authorization_code;
+            //var emailToken = (string)data.data.subscription.email_token ?? "";
+            var planId = (int)data.data.metadata.plan_id;
+            var userId = (int)data.data.metadata.user_id;
+            var user = await _userRepo.Get(u => u.Email == customerEmail && u.Id == userId);
             if (user == null)
             {
                 Console.WriteLine("Webhook initial payment: User not found for email " + customerEmail);
                 return;
             }
-            var plan = await _subscriptionPlanRepo.Get(p => p.PaystackPlanCode == planCode);
+            var plan = await _subscriptionPlanRepo.Get(p => p.Id == planId);
             if (plan == null)
             {
-                Console.WriteLine("Webhook initial payment: Plan not found for plan code " + planCode);
+                Console.WriteLine("Webhook initial payment: Plan not found for plan code " + planId);
                 return;
             }
-
+            var userSubs = await _userSubscriptionRepo.GetUserSubscriptionsAsync(user.Id);
+            if(userSubs != null){
+                foreach (var subs in userSubs)
+                {
+                    subs.IsActive = false;
+                    await _userSubscriptionRepo.Update(subs);
+                }
+            }
             int days = plan.Interval switch
             {
                 SubscriptionInterval.Monthly => 30,
@@ -259,7 +277,7 @@ public class SubscriptionService : ISubscriptionService
                 UserId = user.Id,
                 PlanId = plan.Id,
                 PaystackSubscriptionCode = subscriptionCode,
-                PaystackEmailToken = emailToken,
+                PaystackEmailToken = null,
                 Email = user.Email,
                 StartDate = DateTime.UtcNow,
                 EndDate = DateTime.UtcNow.AddDays(days),
@@ -267,7 +285,6 @@ public class SubscriptionService : ISubscriptionService
                 IsActive = true,
                 IsDeleted = false
             };
-            user.AutoSubscribe = true;
             user.SubscriptionPlan = plan.Name switch
             {
                 "Basic" => SubscriptionPlans.Basic,
@@ -364,6 +381,42 @@ public class SubscriptionService : ISubscriptionService
         catch (Exception ex)
         {
             Console.WriteLine($"OnSubscriptionPaymentFailed error: {ex}");
+        }
+    }
+    public async Task<bool> ChargeSubscription(string subscriptionCode, string email, decimal amount)
+    {
+        var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _paystackSecretKey);
+        var body = new
+        {
+            authorization_code = subscriptionCode,
+            email = email,
+            amount = (int)amount*100
+        };
+        var response = await client.PostAsJsonAsync("https://api.paystack.co/transaction/charge_authorization", body);
+        var json = await response.Content.ReadAsStringAsync();
+
+        dynamic result = Newtonsoft.Json.JsonConvert.DeserializeObject(json);
+
+        if (result.status == true) return true;
+        return false;
+    }
+    public async Task CheckRenewals()
+    {
+        var dueSubscriptions = await _userSubscriptionRepo.GetByExpression(x => x.IsActive == true && x.Plan.Name != "Basic" && x.IsDeleted == false);
+        if(dueSubscriptions != null)
+        {
+            foreach(var userSub in dueSubscriptions)
+            {
+                if(DateTime.UtcNow >= userSub.EndDate)
+                {
+                    var user = await _userRepo.Get(x => x.Id == userSub.UserId && x.IsDeleted == false);
+                    var plan = await _subscriptionPlanRepo.Get(p => p.Id == userSub.PlanId);
+                    if (plan != null && user != null && user.AutoSubscribe == true)
+                        await ChargeSubscription(userSub.PaystackSubscriptionCode, user.Email, plan.Price);
+                }
+            }
         }
     }
     public async Task ResetMonthlyPostCountAsync()

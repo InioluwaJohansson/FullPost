@@ -10,12 +10,14 @@ public class UserService : IUserService
     private readonly IUserRepo _userRepo;
     private readonly IUserSubscriptionRepo _userSubscriptionRepo;
     private IEmailService _emailService;
-    public UserService(ICustomerRepo customerRepo, IUserRepo userRepo, IUserSubscriptionRepo userSubscriptionRepo, IEmailService emailService)
+    IConfiguration _config;
+    public UserService(ICustomerRepo customerRepo, IUserRepo userRepo, IUserSubscriptionRepo userSubscriptionRepo, IEmailService emailService, IConfiguration config)
     {
         _customerRepo = customerRepo;
         _userRepo = userRepo;
-	_userSubscriptionRepo = userSubscriptionRepo;
+	    _userSubscriptionRepo = userSubscriptionRepo;
         _emailService = emailService;
+        _config = config;
     }
     public async Task<LoginResponse> Login(string email, string password)
     {
@@ -68,7 +70,7 @@ public class UserService : IUserService
         var user = await _userRepo.Get(x => x.Email.Equals(email) && x.IsDeleted == false);
         if (user != null)
         {
-            var resetLink = $"email={email}token={((await _customerRepo.Get(x => x.UserId == user.Id)).CustomerId)}time={DateTime.UtcNow.AddMinutes(10)}subToken={Guid.NewGuid().ToString().Substring(0,18)}";
+            var resetLink = $"{_config["App:UrlFront"]}email={email}token={((await _customerRepo.Get(x => x.UserId == user.Id)).CustomerId)}time={DateTime.UtcNow.AddMinutes(10)}subToken={Guid.NewGuid().ToString().Substring(0,18)}";
             await _emailService.SendEmailAsync(email, "Password Reset", $"Click the link to reset your password. {resetLink}");
             return new BaseResponse()
             {

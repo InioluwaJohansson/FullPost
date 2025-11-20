@@ -1,13 +1,13 @@
-using FullPost.Interfaces.Services;
-using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
 using System.Text;
-
+using FullPost.Interfaces.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace FullPost.Controllers;
+
 [ApiController]
 [Route("/webhooks/paystack")]
-public class PaystackWebhookController : ControllerBase
+public class PaystackWebhookController : Controller
 {
     private readonly IConfiguration _config;
     private readonly ISubscriptionService _subscriptionService;
@@ -37,29 +37,26 @@ public class PaystackWebhookController : ControllerBase
         dynamic data = Newtonsoft.Json.JsonConvert.DeserializeObject(json);
         string eventType = data.@event;
         _logger.LogInformation("Received Paystack Webhook: " + eventType);
-
         switch (eventType)
         {
-            case "invoice.payment_failed":
-                await _subscriptionService.OnSubscriptionPaymentFailed(data);
+            case "charge.success":
+                await _subscriptionService.OnInitialSubscriptionPaid(data);
                 break;
 
-            case "charge.payment_success":
+            case "invoice.payment_success":
                 await _subscriptionService.OnSubscriptionRenewed(data);
                 break;
 
-            case "charge.success":
-                await _subscriptionService.OnInitialSubscriptionPaid(data);
+            case "invoice.payment_failed":
+                await _subscriptionService.OnSubscriptionPaymentFailed(data);
                 break;
 
             default:
                 _logger.LogInformation("Unhandled webhook event: " + eventType);
                 break;
         }
-
         return Ok();
     }
-
     private bool IsSignatureValid(string json, string secret, string receivedHash)
     {
         using var hmac = new HMACSHA512(Encoding.UTF8.GetBytes(secret));
@@ -67,5 +64,4 @@ public class PaystackWebhookController : ControllerBase
         string hashString = BitConverter.ToString(hash).Replace("-", "").ToLower();
         return hashString == receivedHash;
     }
-
 }

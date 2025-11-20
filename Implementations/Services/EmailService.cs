@@ -26,7 +26,7 @@ public class EmailService : IEmailService
     {
         var apiKey = _config["Twillo:ApiKey"];
         var client = new SendGridClient(apiKey);
-        var from = new EmailAddress("fullpost@support.com", _config["App:Name"]);
+        var from = new EmailAddress("fullpost10@gmail.com", _config["App:Name"]);
         var emailSubject = subject;
         var emailTo = new EmailAddress(to, "User");
         var plainTextContent = body;

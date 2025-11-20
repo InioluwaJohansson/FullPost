@@ -144,7 +144,6 @@ public class CustomerService : ICustomerService
             Message = "Account deleted successfully"
         };
     }
-
     public async Task<CustomerResponse> GetCustomerById(int userId)
     {
         var customer = await _customerRepo.GetById(userId);
@@ -156,7 +155,6 @@ public class CustomerService : ICustomerService
                 Message = "Customer not found"
             };
         }
-
         var customerDto = new GetCustomerDto
         {
             Id = customer.Id,
@@ -181,7 +179,6 @@ public class CustomerService : ICustomerService
             Data = customerDto
         };
     }
-
     public async Task<BaseResponse> UpdateCustomer(UpdateCustomerDto updateCustomerDto)
     {
         var customer = await _customerRepo.GetById(updateCustomerDto.userId);
@@ -214,7 +211,6 @@ public class CustomerService : ICustomerService
             customer.FirstName = updateCustomerDto.FirstName ?? customer.FirstName;
             customer.LastName = updateCustomerDto.LastName ?? customer.LastName;
             customer.User.UserName = updateCustomerDto.UserName ?? customer.User.UserName;
-            customer.User.AutoSubscribe = true;
             customer.PictureUrl = imgUrl ?? customer.PictureUrl;
             await _customerRepo.Update(customer);
             return new BaseResponse
