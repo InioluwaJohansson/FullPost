@@ -13,7 +13,7 @@ public class CustomerRepo : BaseRepository<Customer>, ICustomerRepo
     }
     public async Task<Customer?> GetById(int userId)
     {
-        return await context.Customers.Include(c => c.User).FirstOrDefaultAsync(c => c.Id == userId);
+        return await context.Customers.Include(c => c.User).FirstOrDefaultAsync(c => c.Id == userId && c.IsDeleted == false);
     }
 }
 

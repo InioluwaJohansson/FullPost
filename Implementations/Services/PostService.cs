@@ -35,10 +35,9 @@ public class PostService : IPostService
         _userSubscriptionRepo = userSubscriptionRepo;
         _emailService = emailService;
     }
-
     public async Task<BaseResponse> CreatePostAsync(CreatePostDto createPostDto)
     {
-        var customer = await _customerRepository.Get(c => c.UserId == createPostDto.UserId);
+        var customer = await _customerRepository.Get(c => c.UserId == createPostDto.UserId && c.IsDeleted == false);
         var plan = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(createPostDto.UserId)).LastOrDefault();
 
         if (createPostDto != null && customer == null && plan == null && !createPostDto.Platforms.Any() || plan.IsActive == false)
@@ -148,7 +147,7 @@ public class PostService : IPostService
     }
     public async Task<BaseResponse> EditPostAsync(EditPostDto editPostDto)
     {
-        var customer = await _customerRepository.Get(c => c.UserId == editPostDto.UserId);
+        var customer = await _customerRepository.Get(c => c.UserId == editPostDto.UserId && c.IsDeleted == false);
         if (customer == null)
             return new BaseResponse { Status = false, Message = "Customer not found." };
 
@@ -267,7 +266,7 @@ public class PostService : IPostService
     }
     public async Task<BaseResponse> DeletePostAsync(string postId, int customerId)
     {
-        var customer = await _customerRepository.Get(c => c.Id == customerId);
+        var customer = await _customerRepository.Get(c => c.Id == customerId && c.IsDeleted == false);
         if (customer == null)
             return new BaseResponse { Status = false, Message = "Customer not found." };
 
@@ -294,8 +293,8 @@ public class PostService : IPostService
 
             if (!string.IsNullOrEmpty(post.LinkedInPostId))
                 await _linkedinService.DeletePostAsync(customer.LinkedInAccessToken!, post.LinkedInPostId);
-
-            await _repository.Delete(post);
+            post.IsDeleted = true;
+            await _repository.Update(post);
             await _emailService.SendEmailAsync(customer.User!.Email, "Post Deleted", "Your post was deleted successfully.");
 
             return new BaseResponse { Status = true, Message = "Post deleted successfully." };
@@ -307,7 +306,7 @@ public class PostService : IPostService
     }
     public async Task<PostsResponseModel> GetAllPostsAsync(int customerId, int limit)
     {
-        var customer = await _customerRepository.Get(c => c.Id == customerId);
+        var customer = await _customerRepository.Get(c => c.Id == customerId && c.IsDeleted == false);
         if (customer == null)
             return new PostsResponseModel { Status = false, Message = "Customer not found." };
 

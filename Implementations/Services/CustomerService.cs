@@ -35,6 +35,10 @@ public class CustomerService : ICustomerService
     }
     public async Task<BaseResponse> CreateCustomer(CreateCustomerDto createCustomerDto)
     {
+        if(createCustomerDto.Email.Contains("@")) return new BaseResponse(){
+            Status = false,
+            Message = "Invalid Email Address!"
+        };
         var checkMail = await _userRepo.Get(x => x.Email.Equals(createCustomerDto.Email));
         if (createCustomerDto != null && checkMail == null)
         {
@@ -42,7 +46,8 @@ public class CustomerService : ICustomerService
             {
                 Email = createCustomerDto.Email,
                 UserName = "",
-                Password = BCrypt.Net.BCrypt.HashPassword(createCustomerDto.Password)
+                Password = BCrypt.Net.BCrypt.HashPassword(createCustomerDto.Password),
+                IsDeleted = false,
             };
             await _userRepo.Create(user);
             var getUser = await _userRepo.Get(x => x.Email.Equals(createCustomerDto.Email));
@@ -52,6 +57,7 @@ public class CustomerService : ICustomerService
                 FirstName = createCustomerDto.FirstName ?? "",
                 LastName = createCustomerDto.LastName ?? "",
                 PictureUrl = "",
+                IsDeleted = false,
             };
             await _customerRepo.Create(customer);
             await CreatePlanForNewUser(getUser.Id, createCustomerDto.Email);
@@ -73,6 +79,10 @@ public class CustomerService : ICustomerService
     }
     public async Task<BaseResponse> CreateCustomerWithGoogle(CreateGoogleCustomerDto createCustomerDto)
     {
+        if(createCustomerDto.Email.Contains("@")) return new BaseResponse(){
+            Status = false,
+            Message = "Invalid Email Address!"
+        };
         var checkMail = await _userRepo.Get(x => x.Email.Equals(createCustomerDto.Email));
         if (createCustomerDto != null && checkMail == null)
         {
@@ -92,7 +102,8 @@ public class CustomerService : ICustomerService
                 GoogleId = createCustomerDto.GoogleId,
                 GoogleAccessToken = createCustomerDto.GoogleAccessToken,
                 GoogleRefreshToken = createCustomerDto.GoogleRefreshToken,
-                GoogleTokenExpiry = createCustomerDto.GoogleTokenExpiry
+                GoogleTokenExpiry = createCustomerDto.GoogleTokenExpiry,
+                IsDeleted = false,
             };
             await _customerRepo.Create(customer);
             await CreatePlanForNewUser(getUser.Id, createCustomerDto.Email);
@@ -123,7 +134,9 @@ public class CustomerService : ICustomerService
                 Message = "Customer not found"
             };
         }
-        await _customerRepo.Delete(customer);
+        customer.IsDeleted = true;
+        customer.User.IsDeleted = true;
+        await _customerRepo.Update(customer);
         await _emailService.SendEmailAsync(customer.User!.Email, "Account Deleted", "Your account has been successfully deleted.");
         return new BaseResponse
         {

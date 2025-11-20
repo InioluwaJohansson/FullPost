@@ -19,7 +19,7 @@ public class UserService : IUserService
     }
     public async Task<LoginResponse> Login(string email, string password)
     {
-        var user = await _userRepo.Get(x => x.Email.Equals(email) || x.UserName.Equals(email));
+        var user = await _userRepo.Get(x => x.Email.Equals(email) || x.UserName.Equals(email) && x.IsDeleted == false);
         if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
         {
             return new LoginResponse()
@@ -40,7 +40,7 @@ public class UserService : IUserService
     }
     public async Task<LoginResponse> GoogleLoginAsync(GoogleLoginRequest request)
     {
-        var user = await _userRepo.Get(x => x.Email.Equals(request.Email));
+        var user = await _userRepo.Get(x => x.Email.Equals(request.Email) && x.IsDeleted == false);
         if (user != null)
         {
             var customer = await _customerRepo.Get(x => x.UserId == user.Id);
@@ -65,7 +65,7 @@ public class UserService : IUserService
     }
     public async Task<BaseResponse> ForgotPassword(string email)
     {
-        var user = await _userRepo.Get(x => x.Email.Equals(email));
+        var user = await _userRepo.Get(x => x.Email.Equals(email) && x.IsDeleted == false);
         if (user != null)
         {
             var resetLink = $"email={email}token={((await _customerRepo.Get(x => x.UserId == user.Id)).CustomerId)}time={DateTime.UtcNow.AddMinutes(10)}subToken={Guid.NewGuid().ToString().Substring(0,18)}";
@@ -102,7 +102,7 @@ public class UserService : IUserService
         };
     }
     public async Task<bool> CheckUserName(string userName, int userId){
-        var users = await _userRepo.GetByExpression(x => x.UserName == userName);
+        var users = await _userRepo.GetByExpression(x => x.UserName == userName && x.IsDeleted == false);
         if (!users.Any()) 
             return true;
         var existingUser = users.First();

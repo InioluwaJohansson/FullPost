@@ -13,7 +13,7 @@ public class UserSubscriptionRepo : BaseRepository<UserSubscription>, IUserSubsc
     }
     public async Task<IList<UserSubscription>> GetUserSubscriptionsAsync(int userId)
     {
-        return await context.UserSubscriptions.Include(x => x.Plan).Where(x => x.UserId == userId).ToListAsync();
+        return await context.UserSubscriptions.Include(x => x.Plan).Where(x => x.UserId == userId && x.IsDeleted == false).ToListAsync();
     }
 }
 
