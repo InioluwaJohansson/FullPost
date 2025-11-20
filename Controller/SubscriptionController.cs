@@ -52,6 +52,19 @@ public class SubscriptionController : Controller
         return result.Status ? Ok(result) : BadRequest(result);
     }
     [Authorize]
+    [HttpPost("enableCancelUserAutoSubscribe")]
+    public async Task<IActionResult> EnableCancelUserAutoSubscribe(int userId)
+    {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
+
+        var result = await _subscriptionService.EnableCancelUserAutoSubscribe(userId);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
+    [Authorize]
     [HttpPost("generatePaymentLink/{userId}/{planId}")]
     public async Task<IActionResult> GenerateSubscriptionPaymentLink(int userId, int planId)
     {

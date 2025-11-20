@@ -41,6 +41,10 @@ public class UserSubscriptionDto
     public string? PaystackSubscriptionCode { get; set; }
     public string? PaystackCustomerCode { get; set; }
 }
+public class AutoSubscribeResponseModel : BaseResponse
+{
+    public bool currentStatus { get; set; }
+}
 public class UserSubscriptionResponseModel : BaseResponse
 {
     public ICollection<UserSubscriptionDto> Data { get; set; } = new HashSet<UserSubscriptionDto>();

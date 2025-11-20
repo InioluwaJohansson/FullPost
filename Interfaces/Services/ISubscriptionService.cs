@@ -10,7 +10,7 @@ public interface ISubscriptionService
     Task<AdminSubscriptionPlanResponseModel> GetAdminSubscriptionsAsync();
     Task<string?> GenerateSubscriptionPaymentLink(int userId, int planId);
     Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId);
-    Task<BaseResponse> EnableCancelUserAutoSubscribe(int userId);
+    Task<AutoSubscribeResponseModel> EnableCancelUserAutoSubscribe(int userId);
     Task<SubscriptionPlanResponseModel> GetAllPlansAsync();
     Task<UserSubscriptionResponseModel> GetUserSubscriptionsAsync(int userId);
     Task CheckRenewals();

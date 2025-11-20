@@ -43,7 +43,7 @@ public class SubscriptionService : ISubscriptionService
         }
         return new BaseResponse { Status = false, Message = "User has no active subscription." };
     }
-    public async Task<BaseResponse> EnableCancelUserAutoSubscribe(int userId)
+    public async Task<AutoSubscribeResponseModel> EnableCancelUserAutoSubscribe(int userId)
     {
         var user = await _userRepo.Get(u => u.Id == userId);
         if(user != null)
@@ -52,16 +52,16 @@ public class SubscriptionService : ISubscriptionService
             {
                 user.AutoSubscribe = false;
                 await _userRepo.Update(user);
-                return new BaseResponse { Status = true, Message = "Auto subscription disabled" };
+                return new AutoSubscribeResponseModel { currentStatus = user.AutoSubscribe,  Status = true, Message = "Auto subscription disabled" };
             } 
             if(user.AutoSubscribe == false)
             {
                 user.AutoSubscribe = true;
                 await _userRepo.Update(user);
-                return new BaseResponse { Status = true, Message = "Auto subscription enabled." };
+                return new AutoSubscribeResponseModel { currentStatus = user.AutoSubscribe, Status = true, Message = "Auto subscription enabled." };
             }  
         }
-        return new BaseResponse { Status = false, Message = "User cannot be found." };
+        return new AutoSubscribeResponseModel { Status = false, Message = "User cannot be found." };
     }
     public async Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto)
     {
