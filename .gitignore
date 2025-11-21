@@ -2,3 +2,5 @@
 /obj
 /Api_Url.tsx
 appsettings.Development.json
+appsettings.*.json
+*.Secrets.json
