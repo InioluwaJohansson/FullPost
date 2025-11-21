@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using System.IO;
 
 namespace FullPost.Context;
-
 public class FullPostContextFactory : IDesignTimeDbContextFactory<FullPostContext>
 {
     public FullPostContext CreateDbContext(string[] args)
