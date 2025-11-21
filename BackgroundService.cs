@@ -18,7 +18,8 @@ public class FullPostBackgroundService : BackgroundService
         await context.Database.MigrateAsync();
         var task1 = Task.Run(() => ResetMonthlyPostCountAsync(token), token);
         var task2 = Task.Run(() => ResetToBasic(token), token);
-        await Task.WhenAll(task1, task2);
+        var task3 = Task.Run(() => CheckRenewals(token), token);
+        await Task.WhenAll(task1, task2, task3);
         await Task.CompletedTask;
     }
     private async Task ResetMonthlyPostCountAsync(CancellationToken cancellationToken)
@@ -45,6 +46,20 @@ public class FullPostBackgroundService : BackgroundService
             await service.ResetToBasic();
 
             _logger.LogInformation("Reset To Basic executed.");
+
+            await Task.Delay(TimeSpan.FromMinutes(30), cancellationToken);
+        }
+    }
+    private async Task CheckRenewals(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<ISubscriptionService>();
+
+            await service.CheckRenewals();
+
+            _logger.LogInformation("Check renewals executed.");
 
             await Task.Delay(TimeSpan.FromMinutes(30), cancellationToken);
         }

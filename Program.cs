@@ -44,7 +44,10 @@ var connectionString = builder.Configuration.GetConnectionString("FullPostContex
 var ExternalconnectionString = $"Server={Environment.GetEnvironmentVariable("MYSQLHOST")};Port={Environment.GetEnvironmentVariable("MYSQLPORT")};Database={Environment.GetEnvironmentVariable("MYSQLDATABASE")};User={Environment.GetEnvironmentVariable("MYSQLUSER")};Password={Environment.GetEnvironmentVariable("MYSQLPASSWORD")};";
 connectionString = connectionString ?? ExternalconnectionString;
 Console.WriteLine($"Connection String: {connectionString}");
-builder.Services.AddDbContext<FullPostContext>(c => c.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+builder.Services.AddDbContext<FullPostContext>(c => c.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),  mySqlOptions =>
+    {
+        mySqlOptions.EnableRetryOnFailure();
+    }));
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
 builder.Services.AddAuthentication(options =>

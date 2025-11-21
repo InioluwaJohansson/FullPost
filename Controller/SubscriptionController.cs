@@ -90,10 +90,18 @@ public class SubscriptionController : Controller
         var result = await _subscriptionService.GetUserSubscriptionsAsync(userId);
         return Ok(result);
     }
+    [HttpGet("update")]
+    public async Task<IActionResult> UpdateLocalPlanAsync(UpdateSubscriptionDto updateSubscriptionDto)
+    {
+        var result = await _subscriptionService.UpdateLocalPlanAsync(updateSubscriptionDto);
+        if(result.Status) Ok(result);
+        return BadRequest(result);
+    }
     [HttpGet("admin/")]
     public async Task<IActionResult> GetAdminSubscriptionsAsync()
     {
         var result = await _subscriptionService.GetAdminSubscriptionsAsync();
-        return Ok(result);
+        if(result.Status) Ok(result);
+        return BadRequest(result);
     }
 }

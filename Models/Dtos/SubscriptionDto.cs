@@ -3,12 +3,20 @@ using FullPost.Models.Enums;
 namespace FullPost.Models.DTOs;
 public class CreateSubscriptionDto
 {
-    public string Name { get; set; } = default!;
+    public string Name { get; set; }
     public decimal Amount { get; set; }
     public SubscriptionInterval Interval { get; set; }
     public int NoOfPosts { get; set; }
     public string? Description { get; set; }
     public SubscriptionPlans PlanType { get; set; }
+}
+public class UpdateSubscriptionDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public decimal Amount { get; set; }
+    public int NoOfPosts { get; set; }
+    public string? Description { get; set; }
 }
 public class ShortUserSubscriptionDto
 {
@@ -47,6 +55,7 @@ public class AutoSubscribeResponseModel : BaseResponse
 }
 public class UserSubscriptionResponseModel : BaseResponse
 {
+    public bool currentStatus { get; set; }
     public ICollection<UserSubscriptionDto> Data { get; set; } = new HashSet<UserSubscriptionDto>();
 }
 public class SubscriptionPlanResponseModel : BaseResponse

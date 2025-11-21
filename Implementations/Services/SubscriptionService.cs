@@ -29,40 +29,6 @@ public class SubscriptionService : ISubscriptionService
         _paystackSecretKey = config["Paystack:SecretKey"]!;
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _paystackSecretKey);
     }
-    public async Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId)
-    {
-        var user = await _userRepo.Get(u => u.Id == userId);
-        var userSub = await _userSubscriptionRepo.Get(x => x.Id == subId && x.IsDeleted == false);
-        if (userSub != null  && user != null)
-        {
-            userSub.IsActive = false;
-            userSub.EndDate = DateTime.UtcNow;
-            await _userSubscriptionRepo.Update(userSub);
-            await _emailService.SendEmailAsync(user.Email, "Subscription Cancelled", "Your subscription has been successfully cancelled.");
-            return new BaseResponse { Status = true, Message = "Subscription cancelled successfully." }; 
-        }
-        return new BaseResponse { Status = false, Message = "User has no active subscription." };
-    }
-    public async Task<AutoSubscribeResponseModel> EnableCancelUserAutoSubscribe(int userId)
-    {
-        var user = await _userRepo.Get(u => u.Id == userId);
-        if(user != null)
-        {
-            if(user.AutoSubscribe == true)
-            {
-                user.AutoSubscribe = false;
-                await _userRepo.Update(user);
-                return new AutoSubscribeResponseModel { currentStatus = user.AutoSubscribe,  Status = true, Message = "Auto subscription disabled" };
-            } 
-            if(user.AutoSubscribe == false)
-            {
-                user.AutoSubscribe = true;
-                await _userRepo.Update(user);
-                return new AutoSubscribeResponseModel { currentStatus = user.AutoSubscribe, Status = true, Message = "Auto subscription enabled." };
-            }  
-        }
-        return new AutoSubscribeResponseModel { Status = false, Message = "User cannot be found." };
-    }
     public async Task<BaseResponse> CreatePlanAsync(CreateSubscriptionDto subscriptionDto)
     {
         string paystackInterval;
@@ -104,6 +70,30 @@ public class SubscriptionService : ISubscriptionService
         {
             Status = true,
             Message = "Plan Successfully Created"
+        };
+    }
+    public async Task<BaseResponse> UpdateLocalPlanAsync(UpdateSubscriptionDto updateSubscriptionDto)
+    {
+        var existingPlan = await _subscriptionPlanRepo.Get(p => p.Id == updateSubscriptionDto.Id);
+        if (existingPlan == null)
+        {
+            return new BaseResponse
+            {
+                Status = false,
+                Message = "Plan not found."
+            };
+        }
+        existingPlan.Description = updateSubscriptionDto.Description;
+        existingPlan.Price = updateSubscriptionDto.Amount;
+        if (existingPlan.PlanType == SubscriptionPlans.Premium)
+            existingPlan.NoOfPosts = int.MaxValue;
+        else
+            existingPlan.NoOfPosts = updateSubscriptionDto.NoOfPosts;
+        await _subscriptionPlanRepo.Update(existingPlan);
+        return new BaseResponse
+        {
+            Status = true,
+            Message = "Local plan updated successfully."
         };
     }
     public async Task<SubscriptionPlanResponseModel> GetAllPlansAsync()
@@ -164,6 +154,7 @@ public class SubscriptionService : ISubscriptionService
                 Status = true,
                 Data = userSubscription.Select(x => new UserSubscriptionDto()
                 {
+                    Id = x.Id,
                     StartDate = x.StartDate,
                     EndDate = x.EndDate,
                     PaystackCustomerCode = x.PaystackEmailToken,
@@ -184,6 +175,7 @@ public class SubscriptionService : ISubscriptionService
         }
         return new UserSubscriptionResponseModel()
         {
+            Message ="Unable to retrieve subscriptions.",
             Status = false
         };
     }
@@ -401,6 +393,40 @@ public class SubscriptionService : ISubscriptionService
 
         if (result.status == true) return true;
         return false;
+    }
+    public async Task<BaseResponse> CancelUserSubscriptionAsync(int userId, int subId)
+    {
+        var user = await _userRepo.Get(u => u.Id == userId);
+        var userSub = await _userSubscriptionRepo.Get(x => x.Id == subId && x.IsDeleted == false);
+        if (userSub != null  && user != null)
+        {
+            userSub.IsActive = false;
+            userSub.EndDate = DateTime.UtcNow;
+            await _userSubscriptionRepo.Update(userSub);
+            await _emailService.SendEmailAsync(user.Email, "Subscription Cancelled", "Your subscription has been successfully cancelled.");
+            return new BaseResponse { Status = true, Message = "Subscription cancelled successfully." }; 
+        }
+        return new BaseResponse { Status = false, Message = "User has no active subscription." };
+    }
+    public async Task<AutoSubscribeResponseModel> EnableCancelUserAutoSubscribe(int userId)
+    {
+        var user = await _userRepo.Get(u => u.Id == userId);
+        if(user != null)
+        {
+            if(user.AutoSubscribe == true)
+            {
+                user.AutoSubscribe = false;
+                await _userRepo.Update(user);
+                return new AutoSubscribeResponseModel { currentStatus = user.AutoSubscribe,  Status = true, Message = "Auto subscription disabled" };
+            } 
+            if(user.AutoSubscribe == false)
+            {
+                user.AutoSubscribe = true;
+                await _userRepo.Update(user);
+                return new AutoSubscribeResponseModel { currentStatus = user.AutoSubscribe, Status = true, Message = "Auto subscription enabled." };
+            }  
+        }
+        return new AutoSubscribeResponseModel { Status = false, Message = "User cannot be found." };
     }
     public async Task CheckRenewals()
     {

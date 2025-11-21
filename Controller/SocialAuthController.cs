@@ -37,21 +37,19 @@ public class SocialAuthController : Controller
         var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (user == null) return Unauthorized();
         
-        var client = new TwitterClient(_config["Twitter:ApiKey"], _config["Twitter:ApiSecret"]);
-        var redirectUrl = $"{_config["App:BaseUrl"]}/api/socialauth/twitter/callback";
+        var client = new TwitterClient(_config["TwitterKeys:ApiKey"], _config["TwitterKeys:ApiSecret"]);
+        var redirectUrl = $"{_config["App:Url"]}/FullPost/SocialAuth/twitter/callback";
+        Console.WriteLine(redirectUrl);
         var authenticationRequest = await client.Auth.RequestAuthenticationUrlAsync(redirectUrl);
         HttpContext.Session.SetString("TwitterAuthRequest", authenticationRequest.AuthorizationKey);
         HttpContext.Session.SetString("TwitterAuthRequestObject", System.Text.Json.JsonSerializer.Serialize(authenticationRequest));
 
         return Redirect(authenticationRequest.AuthorizationURL);
     }
-    [Authorize]
     [HttpGet("twitter/callback")]
-    public async Task<IActionResult> TwitterCallback(string oauth_verifier, int userId)
+    public async Task<IActionResult> TwitterCallback(string oauth_verifier)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
-
+        var userId = GetUserId();
         var authRequestJson = HttpContext.Session.GetString("TwitterAuthRequestObject");
         if (string.IsNullOrEmpty(authRequestJson))
             return BadRequest("Missing or expired Twitter auth session.");
@@ -80,17 +78,16 @@ public class SocialAuthController : Controller
         if (user == null) return Unauthorized();
 
         var appId = _config["Facebook:AppId"];
-        var redirectUri = $"{_config["App:BaseUrl"]}/api/socialauth/facebook/callback";
+        var redirectUri = $"{_config["App:BaseUrl"]}/FullPost/SocialAuth/facebook/callback";
+        Console.WriteLine(redirectUri);
         var scope = "pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish";
         var authUrl = $"https://www.facebook.com/v21.0/dialog/oauth?client_id={appId}&redirect_uri={redirectUri}&scope={scope}&response_type=code";
         return Redirect(authUrl);
     }
-    [Authorize]
     [HttpGet("facebook/callback")]
-    public async Task<IActionResult> FacebookCallback(string code, int userId)
+    public async Task<IActionResult> FacebookCallback(string code)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var userId = GetUserId();
 
         var appId = _config["Facebook:AppId"];
         var appSecret = _config["Facebook:AppSecret"];
@@ -135,18 +132,16 @@ public class SocialAuthController : Controller
         if (user == null) return Unauthorized();
 
         var appId = _config["Instagram:AppId"];
-        var redirectUri = $"{_config["App:BaseUrl"]}/api/socialauth/instagram/callback";
+        var redirectUri = $"{_config["App:BaseUrl"]}/FullPost/SocialAuth/instagram/callback";
         var scope = "instagram_basic,instagram_content_publish";
 
         var authUrl = $"https://api.instagram.com/oauth/authorize?client_id={appId}&redirect_uri={redirectUri}&scope={scope}&response_type=code";
         return Redirect(authUrl);
     }
-    [Authorize]
     [HttpGet("instagram/callback")]
-    public async Task<IActionResult> InstagramCallback(string code, int userId)
+    public async Task<IActionResult> InstagramCallback(string code)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var userId = GetUserId();
 
         var appId = _config["Instagram:AppId"];
         var appSecret = _config["Instagram:AppSecret"];
@@ -185,19 +180,18 @@ public class SocialAuthController : Controller
         var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (user == null) return Unauthorized();
 
-        var clientId = _config["Google:ClientId"];
-        var redirectUri = _config["Google:RedirectUri"];
+        var clientId = _config["Authentication:Google:ClientId"];
+        var redirectUri = $"{_config["App:Url"]}/FullPost/SocialAuth/youtube/callback";
         var scope = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
 
         var authUrl = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope={Uri.EscapeDataString(scope)}&access_type=offline&prompt=consent";
-        return Redirect(authUrl);
+        Console.WriteLine(authUrl);
+        return Ok(authUrl);
     }
-    [Authorize]
     [HttpGet("youtube/callback")]
-    public async Task<IActionResult> YouTubeCallback(string code, int userId)
+    public async Task<IActionResult> YouTubeCallback(string code)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var userId = GetUserId();
 
         try
         {
@@ -266,24 +260,22 @@ public class SocialAuthController : Controller
         }
     }
     [Authorize]
-    [HttpGet("connect/tiktok")]
+    [HttpGet("tiktok/connect")]
     public IActionResult ConnectTikTok()
     {
         var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (user == null) return Unauthorized();
 
         var clientKey = _config["TikTok:ClientKey"];
-        var redirectUri = $"{_config["App:BaseUrl"]}/api/socialauth/tiktok/callback";
+        var redirectUri = $"{_config["App:BaseUrl"]}FullPost/SocialAuth/tiktok/callback";
         var scope = "user.info.basic,video.upload";
         var url = $"https://www.tiktok.com/v2/auth/authorize/?client_key={clientKey}&response_type=code&scope={scope}&redirect_uri={redirectUri}&state=secureRandomState";
         return Redirect(url);
     }
-    [Authorize]
     [HttpGet("tiktok/callback")]
-    public async Task<IActionResult> TikTokCallback(string code, int userId)
+    public async Task<IActionResult> TikTokCallback(string code)
     {
-        var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (user == null) return Unauthorized();
+        var userId = GetUserId();
 
         var tokenUrl = "https://open-api.tiktok.com/oauth/access_token/";
         var clientKey = _config["TikTok:ClientKey"];
@@ -324,4 +316,13 @@ public class SocialAuthController : Controller
         await _customerRepository.Update(customer);
         return Redirect($"{_config["App:FrontendUrl"]}/dashboard?connected=tiktok");
     }
+    private int GetUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(claim))
+            throw new UnauthorizedAccessException("User not authenticated.");
+
+        return int.Parse(claim);
+    }
+
 }

@@ -41,15 +41,15 @@ public class PaystackWebhookController : Controller
         {
             case "charge.success":
                 await _subscriptionService.OnInitialSubscriptionPaid(data);
-                break;
+                return Ok(true);
 
             case "invoice.payment_success":
                 await _subscriptionService.OnSubscriptionRenewed(data);
-                break;
+                return Ok(true);
 
             case "invoice.payment_failed":
                 await _subscriptionService.OnSubscriptionPaymentFailed(data);
-                break;
+                return BadRequest(false);
 
             default:
                 _logger.LogInformation("Unhandled webhook event: " + eventType);
