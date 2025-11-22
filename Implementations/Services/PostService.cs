@@ -4,6 +4,7 @@ using FullPost.Interfaces.Respositories;
 using FullPost.Interfaces.Rules;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
+using FullPost.Models.Enums;
 using Tweetinvi.Models;
 
 namespace FullPost.Implementations.Services;
@@ -45,13 +46,13 @@ public class PostService : IPostService
 
         if (plan.IsActive == true && plan != null)
         {
-            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.Name == "Basic")
+            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.PlanType == SubscriptionPlans.Basic)
                 return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Basic plan." };
 
-            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.Name == "Standard")
+            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.PlanType == SubscriptionPlans.Standard)
                 return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Standard plan." };
 
-            if (plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.Name == "Basic" || plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.Name == "Standard" || plan.Plan.Name == "Premium")
+            if (plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.PlanType == SubscriptionPlans.Basic || plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.PlanType == SubscriptionPlans.Standard || plan.Plan.PlanType == SubscriptionPlans.Premium)
             {
                 var allowedPlatforms = await _subscriptionPlanRules.GetAllowedPlatformsForUser(plan.Plan.Id, createPostDto.UserId);
                 if (allowedPlatforms == null || !allowedPlatforms.Any())
@@ -136,7 +137,7 @@ public class PostService : IPostService
                     await _userSubscriptionRepo.Update(plan);
 
                     await _emailService.SendEmailAsync(customer.User!.Email,
-                        "New Post Created", "Your post was successfully created and shared.");
+                        "New Post Created!", "Your post was successfully created and shared. ");
 
                     return new BaseResponse { Status = true, Message = "Post created successfully." };
                 }
@@ -151,121 +152,134 @@ public class PostService : IPostService
     public async Task<BaseResponse> EditPostAsync(EditPostDto editPostDto)
     {
         var customer = await _customerRepository.Get(c => c.UserId == editPostDto.UserId && c.IsDeleted == false);
-        if (customer == null)
+        var plan = (await _userSubscriptionRepo.GetUserSubscriptionsAsync(editPostDto.UserId)).LastOrDefault();
+        if (customer == null && plan == null)
             return new BaseResponse { Status = false, Message = "Customer not found." };
 
         var post = await _repository.Get(x => x.PostId == editPostDto.PostId);
         if (post == null)
             return new BaseResponse { Status = false, Message = "Post not found." };
-
-        SocialPostResult twitterResult = new SocialPostResult (), facebookResult = null, instagramResult = null, youtubeResult = null, tiktokResult = null, linkedinResult = null; 
-        try
+        if (plan.IsActive == true && plan != null)
         {
-            List<string> updatedMediaUrls = new();
-            if (!string.IsNullOrEmpty(post.TwitterPostId))
+            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.Name == "Basic")
+                return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Basic plan." };
+
+            if (plan.NoOfPostsThisMonth == plan.Plan.NoOfPosts && plan.Plan.Name == "Standard")
+                return new BaseResponse { Status = false, Message = "You have reached the monthly limit for Standard plan." };
+
+            if (plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.PlanType == SubscriptionPlans.Basic || plan.NoOfPostsThisMonth < plan.Plan.NoOfPosts && plan.Plan.PlanType == SubscriptionPlans.Standard || plan.Plan.PlanType == SubscriptionPlans.Premium)
             {
-                twitterResult = await _twitterService.EditTweetAsync(
-                    customer.TwitterAccessToken!,
-                    customer.TwitterAccessSecret!,
-                    post.TwitterPostId,
-                    editPostDto.NewCaption,
-                    editPostDto.NewMediaFiles
-                );
-                if (twitterResult.MediaUrls != null)
-                    updatedMediaUrls.AddRange(twitterResult.MediaUrls);
+                var allowedPlatforms = await _subscriptionPlanRules.GetAllowedPlatformsForUser(plan.Plan.Id, editPostDto.UserId);
+                if (allowedPlatforms == null || !allowedPlatforms.Any())
+                    return new BaseResponse (){Status = false, Message = "User has no allowed platforms."};
+                try
+                {
+                    var validPlatforms = editPostDto.Platforms.Where(p => allowedPlatforms.Contains(p.ToLower())).ToList();
+
+                    List<string> platForms = new();
+                        
+                    List<string> uploadedUrls = new();
+                    List<string> updatedMediaUrls = new();
+                    SocialPostResult twitterResult = new SocialPostResult (), facebookResult = null, instagramResult = null, youtubeResult = null, tiktokResult = null, linkedinResult = null; 
+                    foreach (var platform in validPlatforms)
+                    {
+                        switch (platform.ToLower())
+                        {
+                            case "twitter":
+                                if (!string.IsNullOrEmpty(post.TwitterPostId))
+                                {
+                                    twitterResult = await _twitterService.EditTweetAsync(customer.TwitterAccessToken!,customer.TwitterAccessSecret!,post.TwitterPostId,editPostDto.NewCaption,editPostDto.NewMediaFiles);
+                                    if (twitterResult.MediaUrls != null)
+                                        updatedMediaUrls.AddRange(twitterResult.MediaUrls);
+                                    platForms.Add(platform.ToLower());
+                                }
+                            break;
+
+                            case "facebook":
+                                if (!string.IsNullOrEmpty(post.FacebookPostId))
+                                {
+                                    facebookResult = await _facebookService.EditPostAsync(customer.FacebookPageId!,customer.FacebookAccessToken!,post.FacebookPostId,editPostDto.NewCaption,editPostDto.NewMediaFiles);
+                                    if (facebookResult.MediaUrls != null)
+                                        updatedMediaUrls.AddRange(facebookResult.MediaUrls);
+                                    platForms.Add(platform.ToLower());
+                                }
+                            break;
+
+                            case "instagram":
+                                if (!string.IsNullOrEmpty(post.InstagramPostId))
+                                {
+                                    instagramResult = await _instagramService.EditPostAsync(customer.InstagramUserId!,customer.InstagramAccessToken!,post.InstagramPostId,editPostDto.NewCaption,editPostDto.NewMediaFiles);
+                                    if (instagramResult.MediaUrls != null)
+                                        updatedMediaUrls.AddRange(instagramResult.MediaUrls);
+                                    platForms.Add(platform.ToLower());
+                                }
+                            break;
+
+                            case "youtube":
+                                if (!string.IsNullOrEmpty(post.YouTubePostId) && editPostDto.NewMediaFiles?.Any() == true)
+                                {
+                                    youtubeResult = await _youtubeService.EditPostAsync(customer.YouTubeAccessToken!,post.YouTubePostId,editPostDto.NewTitle,editPostDto.NewCaption);
+                                    if (youtubeResult.MediaUrls != null)
+                                        updatedMediaUrls.AddRange(youtubeResult.MediaUrls);
+                                    platForms.Add(platform.ToLower());
+                                }
+                            break;
+
+                            case "tiktok":
+                                if (!string.IsNullOrEmpty(post.TikTokPostId))
+                                {
+                                    tiktokResult = await _tiktokService.EditPostAsync(customer.TikTokAccessToken!,post.TikTokPostId,editPostDto.NewCaption);
+                                    if (tiktokResult.MediaUrls != null)
+                                        updatedMediaUrls.AddRange(tiktokResult.MediaUrls);
+                                    platForms.Add(platform.ToLower());
+                                }
+                            break;
+
+                            case "linkedin":
+                                if (!string.IsNullOrEmpty(post.LinkedInPostId))
+                                {
+                                    linkedinResult = await _linkedinService.EditPostAsync(customer.LinkedInAccessToken!,post.LinkedInPostId,customer.LinkedInUserId,editPostDto.NewCaption,instagramResult.MediaUrls.FirstOrDefault());
+                                    if (linkedinResult.MediaUrls != null)
+                                        updatedMediaUrls.AddRange(linkedinResult.MediaUrls);
+                                    
+                                    platForms.Add(platform.ToLower());
+                                }
+                            break;
+                        }
+                    }
+
+                    post.Title = editPostDto.NewTitle;
+                    post.Caption = editPostDto.NewCaption;
+                    post.MediaUrls = updatedMediaUrls.Any() ? JsonSerializer.Serialize(updatedMediaUrls) : null;
+                    post.TwitterPostId = twitterResult.PostId;
+                    post.FacebookPostId = facebookResult.PostId;
+                    post.InstagramPostId = instagramResult.PostId;
+                    post.YouTubePostId = youtubeResult.PostId;
+                    post.TikTokPostId = linkedinResult.PostId;
+                    post.LinkedInPostId = linkedinResult.PostId;
+                    post.TwitterPostLink = twitterResult.Permalink;
+                    post.FacebookPostLink = facebookResult.Permalink;
+                    post.InstagramPostLink = instagramResult.Permalink;
+                    post.YouTubePostLink = $"https://www.youtube.com/watch?v={youtubeResult.PostId}";
+                    post.TikTokPostLink = tiktokResult.Permalink;
+                    post.LinkedInPostLink = linkedinResult.Permalink;
+                    post.Platform = JsonSerializer.Serialize(updatedMediaUrls) ?? null;
+                    post.LastModifiedOn = DateTime.UtcNow;
+
+                    await _repository.Update(post);
+                    plan.NoOfPostsThisMonth++;
+                    await _userSubscriptionRepo.Update(plan);
+                    await _emailService.SendEmailAsync(customer.User!.Email, "Post Updated", "Your post has been updated successfully.");
+
+                    return new BaseResponse { Status = true, Message = "Post updated successfully." };
+                }
+                catch (Exception ex)
+                {
+                    return new BaseResponse { Status = false, Message = $"Failed to edit post: {ex.Message}" };
+                }
             }
-
-            if (!string.IsNullOrEmpty(post.FacebookPostId))
-            {
-                facebookResult = await _facebookService.EditPostAsync(
-                    customer.FacebookPageId!,
-                    customer.FacebookAccessToken!,
-                    post.FacebookPostId,
-                    editPostDto.NewCaption,
-                    editPostDto.NewMediaFiles
-                );
-                if (facebookResult.MediaUrls != null)
-                    updatedMediaUrls.AddRange(facebookResult.MediaUrls);
-            }
-
-            if (!string.IsNullOrEmpty(post.InstagramPostId))
-            {
-                instagramResult = await _instagramService.EditPostAsync(
-                    customer.InstagramUserId!,
-                    customer.InstagramAccessToken!,
-                    post.InstagramPostId,
-                    editPostDto.NewCaption,
-                    editPostDto.NewMediaFiles
-                );
-                if (instagramResult.MediaUrls != null)
-                    updatedMediaUrls.AddRange(instagramResult.MediaUrls);
-            }
-
-            if (!string.IsNullOrEmpty(post.YouTubePostId) && editPostDto.NewMediaFiles?.Any() == true)
-            {
-                youtubeResult = await _youtubeService.EditPostAsync(
-                    customer.YouTubeAccessToken!,
-                    post.YouTubePostId,
-                    editPostDto.NewTitle,
-                    editPostDto.NewCaption
-                );
-                if (youtubeResult.MediaUrls != null)
-                    updatedMediaUrls.AddRange(youtubeResult.MediaUrls);
-            }
-
-            if (!string.IsNullOrEmpty(post.TikTokPostId))
-            {
-                tiktokResult = await _tiktokService.EditPostAsync(
-                    customer.TikTokAccessToken!,
-                    post.TikTokPostId,
-                    editPostDto.NewCaption
-                );
-
-                if (tiktokResult.MediaUrls != null)
-                    updatedMediaUrls.AddRange(tiktokResult.MediaUrls);
-            }
-
-            if (!string.IsNullOrEmpty(post.LinkedInPostId))
-            {
-                linkedinResult = await _linkedinService.EditPostAsync(
-                    customer.LinkedInAccessToken!,
-                    post.LinkedInPostId,customer.LinkedInUserId,
-                    editPostDto.NewCaption,
-                    instagramResult.MediaUrls.FirstOrDefault()
-                );
-
-                if (linkedinResult.MediaUrls != null)
-                    updatedMediaUrls.AddRange(linkedinResult.MediaUrls);
-                post.LinkedInPostId = linkedinResult.PostId; // update with new post ID after delete/create
-            }
-
-            post.Title = editPostDto.NewTitle;
-            post.Caption = editPostDto.NewCaption;
-            post.MediaUrls = updatedMediaUrls.Any() ? JsonSerializer.Serialize(updatedMediaUrls) : null;
-            post.TwitterPostId = twitterResult.PostId; // no change in ID
-            post.FacebookPostId = facebookResult.PostId;
-            post.InstagramPostId = instagramResult.PostId;
-            post.YouTubePostId = youtubeResult.PostId;
-            post.TikTokPostId = linkedinResult.PostId;
-            post.TwitterPostLink = twitterResult.Permalink;
-            post.FacebookPostLink = facebookResult.Permalink;
-            post.InstagramPostLink = instagramResult.Permalink;
-            post.YouTubePostLink = $"https://www.youtube.com/watch?v={youtubeResult.PostId}";
-            post.TikTokPostLink = tiktokResult.Permalink;
-            post.LinkedInPostLink = linkedinResult.Permalink;
-
-            post.LastModifiedOn = DateTime.UtcNow;
-
-            await _repository.Update(post);
-
-            await _emailService.SendEmailAsync(customer.User!.Email, "Post Updated", "Your post has been updated successfully.");
-
-            return new BaseResponse { Status = true, Message = "Post updated successfully." };
         }
-        catch (Exception ex)
-        {
-            return new BaseResponse { Status = false, Message = $"Failed to edit post: {ex.Message}" };
-        }
+        return new BaseResponse { Status = false, Message = $"Failed to edit post!" };
     }
     public async Task<BaseResponse> DeletePostAsync(string postId, int userId)
     {

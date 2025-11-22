@@ -35,7 +35,7 @@ public class CustomerService : ICustomerService
     }
     public async Task<BaseResponse> CreateCustomer(CreateCustomerDto createCustomerDto)
     {
-        if(createCustomerDto.Email.Contains("@")) return new BaseResponse(){
+        if(createCustomerDto.Email.Contains("@") == false) return new BaseResponse(){
             Status = false,
             Message = "Invalid Email Address!"
         };
@@ -79,7 +79,7 @@ public class CustomerService : ICustomerService
     }
     public async Task<BaseResponse> CreateCustomerWithGoogle(CreateGoogleCustomerDto createCustomerDto)
     {
-        if(createCustomerDto.Email.Contains("@")) return new BaseResponse(){
+        if(createCustomerDto.Email.Contains("@") == false) return new BaseResponse(){
             Status = false,
             Message = "Invalid Email Address!"
         };
@@ -136,7 +136,7 @@ public class CustomerService : ICustomerService
         }
         customer.IsDeleted = true;
         customer.User.IsDeleted = true;
-        await _customerRepo.Update(customer);
+        await _customerRepo.Delete(customer);
         await _emailService.SendEmailAsync(customer.User!.Email, "Account Deleted", "Your account has been successfully deleted.");
         return new BaseResponse
         {

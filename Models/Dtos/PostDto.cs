@@ -15,6 +15,7 @@ public class EditPostDto
     public string NewTitle { get; set; }
     public string NewCaption { get; set; }
     public List<IFormFile>? NewMediaFiles { get; set; }
+    public List<string>? Platforms { get; set; }
 }
 public class GetPostDto
 {
