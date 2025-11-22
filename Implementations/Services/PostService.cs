@@ -307,7 +307,7 @@ public class PostService : IPostService
             return new BaseResponse { Status = false, Message = $"Failed to delete post: {ex.Message}" };
         }
     }
-    public async Task<PostsResponseModel> GetAllPostsAsync(int userId, int limit)
+    public async Task<PostsResponseModel> GetAllPostsAsync(int userId, int start, int limit)
     {
         var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
         if (customer == null)
@@ -315,6 +315,7 @@ public class PostService : IPostService
         try
         {
             var posts = await _repository.GetByExpression(p => p.UserId == customer.UserId && p.IsDeleted == false);
+            posts.OrderByDescending(p => p.CreatedOn).Skip(start).Take(limit).ToList();
             if(posts != null)
             {
                 return new PostsResponseModel()

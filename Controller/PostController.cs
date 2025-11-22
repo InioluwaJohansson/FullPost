@@ -63,8 +63,8 @@ public class PostController : Controller
         return result.Status ? Ok(result) : BadRequest(result);
     }
     [Authorize]
-    [HttpGet("allposts/{userId}")]
-    public async Task<IActionResult> GetAllPosts(int userId)
+    [HttpGet("allposts/{userId}/{start}/{limit}")]
+    public async Task<IActionResult> GetAllPosts(int userId, int start, int limit)
     {
         var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
@@ -72,7 +72,7 @@ public class PostController : Controller
         if (loggedInUserId != userId)
             return Forbid("You are not allowed to access this user's data.");
         
-        var result = await _postService.GetAllPostsAsync(userId);
+        var result = await _postService.GetAllPostsAsync(userId, start, limit);
         return Ok(result);
     }
     [Authorize]
