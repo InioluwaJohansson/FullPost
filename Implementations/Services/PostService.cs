@@ -59,6 +59,8 @@ public class PostService : IPostService
                 var validPlatforms = createPostDto.Platforms.Where(p => allowedPlatforms.Contains(p.ToLower())).ToList();
                 try
                 {
+                    List<string> platForms = new();
+                    
                     List<string> uploadedUrls = new();
 
                     SocialPostResult? resultT = null, resultF = null, resultY = null, resultI =null, resultLi = null, resultTik = null;
@@ -96,6 +98,7 @@ public class PostService : IPostService
                                 resultLi = await _linkedinService.CreatePostAsync(customer.LinkedInAccessToken!,customer.LinkedInUserId!,createPostDto.Caption, resultI.MediaUrls.FirstOrDefault());
                                 break;
                         }
+                        platForms.Add(platform.ToLower());
 
                         if (resultI?.MediaUrls != null)
                         {
@@ -110,7 +113,7 @@ public class PostService : IPostService
                         Title = createPostDto.Title,
                         Caption = createPostDto.Caption,
                         MediaUrls = JsonSerializer.Serialize(uploadedUrls),
-
+                        Platform = JsonSerializer.Serialize(platForms),
                         TwitterPostId = resultT.PostId,
                         FacebookPostId = resultF.PostId,
                         InstagramPostId = resultI.PostId,
@@ -264,9 +267,9 @@ public class PostService : IPostService
             return new BaseResponse { Status = false, Message = $"Failed to edit post: {ex.Message}" };
         }
     }
-    public async Task<BaseResponse> DeletePostAsync(string postId, int customerId)
+    public async Task<BaseResponse> DeletePostAsync(string postId, int userId)
     {
-        var customer = await _customerRepository.Get(c => c.Id == customerId && c.IsDeleted == false);
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
         if (customer == null)
             return new BaseResponse { Status = false, Message = "Customer not found." };
 
@@ -304,47 +307,131 @@ public class PostService : IPostService
             return new BaseResponse { Status = false, Message = $"Failed to delete post: {ex.Message}" };
         }
     }
-    public async Task<PostsResponseModel> GetAllPostsAsync(int customerId, int limit)
+    public async Task<PostsResponseModel> GetAllPostsAsync(int userId, int limit)
     {
-        var customer = await _customerRepository.Get(c => c.Id == customerId && c.IsDeleted == false);
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
         if (customer == null)
             return new PostsResponseModel { Status = false, Message = "Customer not found." };
-
         try
         {
-            var allPosts = new Dictionary<string, object>();
-
-            var localPosts = await _repository.Get(p => p.UserId == customer.UserId);
-            allPosts["local"] = localPosts;
-
-            if (!string.IsNullOrEmpty(customer.TwitterAccessToken))
-                allPosts["twitter"] = await _twitterService.GetUserTweetsAsync(customer.TwitterAccessToken!, customer.TwitterAccessSecret!, limit);
-
-            if (!string.IsNullOrEmpty(customer.FacebookAccessToken))
-                allPosts["facebook"] = await _facebookService.GetPostsAsync(customer.FacebookPageId!, customer.FacebookAccessToken!);
-
-            if (!string.IsNullOrEmpty(customer.InstagramAccessToken))
-                allPosts["instagram"] = await _instagramService.GetPostsAsync(customer.InstagramUserId!, customer.InstagramAccessToken!);
-
-            if (!string.IsNullOrEmpty(customer.YouTubeAccessToken))
-                allPosts["youtube"] = await _youtubeService.GetAllPostsAsync(customer.YouTubeAccessToken!, customer.YouTubeChannelId!);
-
-            if (!string.IsNullOrEmpty(customer.TikTokAccessToken))
-                allPosts["tiktok"] = await _tiktokService.GetAllPostsAsync(customer.TikTokAccessToken!, customer.TikTokUserId!);
-
-            if (!string.IsNullOrEmpty(customer.LinkedInAccessToken))
-                allPosts["linkedin"] = await _linkedinService.GetAllPostsAsync(customer.LinkedInAccessToken!, customer.LinkedInUserId!);
-
+            var posts = await _repository.GetByExpression(p => p.UserId == customer.UserId && p.IsDeleted == false);
+            if(posts != null)
+            {
+                return new PostsResponseModel()
+                {
+                    Data = posts.Select(x => new GetPostDto()
+                    {
+                        Id = x.Id,
+                        Title = x.Title,
+                        Caption = x.Caption,
+                        CreatedAt = x.CreatedOn,
+                        TwitterPostLink = x.TwitterPostLink,
+                        FacebookPostLink = x.FacebookPostLink,
+                        InstagramPostLink = x.InstagramPostLink,
+                        YouTubePostLink = x.YouTubePostLink,
+                        TikTokPostLink = x.TikTokPostLink,
+                        LinkedInPostLink = x.LinkedInPostLink,
+                        Platform = JsonSerializer.Deserialize<List<string>>(x.Platform),
+                        MediaUrl = JsonSerializer.Deserialize<List<string>>(x.MediaUrls),
+                    }).ToList(),
+                    Status = true,
+                    Message = "All posts retrieved successfully.",
+                };
+            }
             return new PostsResponseModel
             {
-                Status = true,
-                Message = "All posts retrieved successfully.",
-                Data = allPosts
+                Status = false,
+                Message = "You've not made any posts yet!",
+                Data = null
             };
         }
         catch (Exception ex)
         {
             return new PostsResponseModel { Status = false, Message = $"Failed to retrieve posts: {ex.Message}" };
         }
+    }
+    public async Task<TwitterResponseModel> GetTwitterPosts(int userId,int limit)
+    {
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
+        if (customer == null)
+            return new TwitterResponseModel { Status = false, Message = "Customer not found." };
+        if (!string.IsNullOrEmpty(customer.TwitterAccessToken))
+        {
+            var twitterPosts = await _twitterService.GetUserTweetsAsync(customer.TwitterAccessToken!, customer.TwitterAccessSecret!, limit);
+            if(twitterPosts != null)
+                return new TwitterResponseModel { Data = twitterPosts, Status = true, Message = "Tweets retrieved" };
+            return new TwitterResponseModel { Data = null, Status = false, Message = "Tweets unretrieved" };
+        }
+        return new TwitterResponseModel { Status = false, Message = "Error not logged in to twitter" };
+    }
+    public async Task<FacebookResponseModel> GetFacebookPosts(int userId, int limit)
+    {
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
+        if (customer == null)
+            return new FacebookResponseModel { Status = false, Message = "Customer not found." };
+        if (!string.IsNullOrEmpty(customer.FacebookAccessToken))
+        {
+                var facebookPosts = await _facebookService.GetPostsAsync(customer.FacebookPageId!, customer.FacebookAccessToken!, limit);
+            if(facebookPosts != null)
+                return new FacebookResponseModel { Data = facebookPosts, Status = true, Message = "Facebook posts retrieved" };
+            return new FacebookResponseModel { Data = null, Status = false, Message = "Facebook posts unretrieved" };
+        }
+        return new FacebookResponseModel { Status = false, Message = "Error not logged in to facebook" };
+    }
+    public async Task<InstagramResponseModel> GetInstagramPosts(int userId, int limit)
+    {
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
+        if (customer == null)
+            return new InstagramResponseModel { Status = false, Message = "Customer not found." };
+        if (!string.IsNullOrEmpty(customer.InstagramAccessToken))
+        {
+            var instagramPosts = await _instagramService.GetPostsAsync(customer.InstagramUserId!, customer.InstagramAccessToken!, limit);
+            if(instagramPosts != null)
+                return new InstagramResponseModel { Data = instagramPosts, Status = true, Message = "Instagram posts retrieved" };
+            return new InstagramResponseModel { Data = null, Status = false, Message = "Instagram posts unretrieved" };
+        }
+        return new InstagramResponseModel { Status = false, Message = "Error not logged in to instagram" };
+    }
+    public async Task<YouTubeResponseModel> GetYouTubePosts(int userId, int limit)
+    {
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
+        if (customer == null)
+            return new YouTubeResponseModel { Status = false, Message = "Customer not found." };
+        if (!string.IsNullOrEmpty(customer.YouTubeAccessToken!))
+        {
+            var youTubePosts = await _youtubeService.GetAllPostsAsync(customer.YouTubeAccessToken!, customer.YouTubeChannelId!, limit);
+            if(youTubePosts != null)
+                return new YouTubeResponseModel { Data = youTubePosts, Status = true, Message = "YouTube posts retrieved" };
+            return new YouTubeResponseModel { Data = null, Status = false, Message = "YouTube posts unretrieved" };
+        }
+        return new YouTubeResponseModel { Status = false, Message = "Error not logged in to YouTube" };
+    }
+    public async Task<TikTokResponseModel> GetTikTokPosts(int userId, int limit)
+    {
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
+        if (customer == null)
+            return new TikTokResponseModel { Status = false, Message = "Customer not found." };
+        if (!string.IsNullOrEmpty(customer.TikTokAccessToken))
+        {
+            var tikTokPosts = await _tiktokService.GetAllPostsAsync(customer.TikTokAccessToken!, customer.TikTokUserId!, limit);
+            if(tikTokPosts != null)
+                return new TikTokResponseModel { Data = tikTokPosts, Status = true, Message = "TikTik posts retrieved" };
+            return new TikTokResponseModel { Data = null, Status = false, Message = "TikTok posts unretrieved" };
+        }
+        return new TikTokResponseModel { Status = false, Message = "Error not logged in to TikTok" };
+    }
+    public async Task<LinkedInResponseModel> GetLinkedInPosts(int userId, int limit)
+    {
+        var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
+        if (customer == null)
+            return new LinkedInResponseModel { Status = false, Message = "Customer not found." };
+        if (!string.IsNullOrEmpty(customer.LinkedInAccessToken))
+        {
+            var linkedInPosts = await _linkedinService.GetAllPostsAsync(customer.LinkedInAccessToken!, customer.LinkedInUserId!);
+            if(linkedInPosts != null)
+                return new LinkedInResponseModel { Data = linkedInPosts, Status = true, Message = "TikTik posts retrieved" };
+            return new LinkedInResponseModel { Data = null, Status = false, Message = "TikTok posts unretrieved" };
+        }
+        return new LinkedInResponseModel { Status = false, Message = "Error not logged in to TikTok" };
     }
 }

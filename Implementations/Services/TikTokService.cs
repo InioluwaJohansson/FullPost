@@ -23,7 +23,6 @@ public class TikTokService : ITikTokService
 
     public async Task<SocialPostResult> CreatePostAsync(string accessToken, IFormFile videoFile, string title)
     {
-        // 1️⃣ Initialize upload
         var initRequest = new HttpRequestMessage(HttpMethod.Post, $"{TikTokApiBase}video/init/")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", accessToken) },
@@ -39,7 +38,6 @@ public class TikTokService : ITikTokService
         var uploadUrl = initObj.GetProperty("data").GetProperty("upload_url").GetString();
         var videoId = initObj.GetProperty("data").GetProperty("video_id").GetString();
 
-        // 2️⃣ Upload video file
         using (var stream = videoFile.OpenReadStream())
         {
             var uploadContent = new StreamContent(stream);
@@ -52,7 +50,6 @@ public class TikTokService : ITikTokService
             }
         }
 
-        // 3️⃣ Publish video
         var publishData = new
         {
             video_id = videoId,
@@ -70,7 +67,6 @@ public class TikTokService : ITikTokService
         if (!publishResponse.IsSuccessStatusCode)
             throw new Exception($"TikTok publish failed: {publishJson}");
 
-        // 4️⃣ Build SocialPostResult
         return new SocialPostResult
         {
             Success = true,
@@ -80,9 +76,9 @@ public class TikTokService : ITikTokService
         };
     }
 
-    public async Task<JsonElement?> GetAllPostsAsync(string accessToken, string openId)
+    public async Task<IList<TikTokVideoResponse>> GetAllPostsAsync(string accessToken, string openId, int limit = 50)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, $"{TikTokApiBase}video/list/?open_id={openId}&max_count=10");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{TikTokApiBase}video/list/?open_id={openId}&max_count={limit}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
         var response = await _httpClient.SendAsync(request);
@@ -90,7 +86,43 @@ public class TikTokService : ITikTokService
         if (!response.IsSuccessStatusCode)
             throw new Exception($"TikTok fetch videos failed: {json}");
 
-        return JsonDocument.Parse(json).RootElement.GetProperty("data");
+        var rawData = JsonDocument.Parse(json).RootElement.GetProperty("data");
+        var posts = new List<TikTokVideoResponse>();
+
+        foreach (var item in rawData.EnumerateArray())
+        {
+            var video = new TikTokVideoResponse
+            {
+                VideoId = item.TryGetProperty("id", out var id) ? id.GetString() : null,
+                Description = item.TryGetProperty("desc", out var desc) ? desc.GetString() : null,
+                Duration = item.TryGetProperty("duration", out var dur) ? dur.GetInt64() : 0,
+                CoverImageUrl = item.TryGetProperty("video", out var videoObj) &&
+                                videoObj.TryGetProperty("cover", out var cover) &&
+                                cover.TryGetProperty("url", out var coverUrl)
+                                ? coverUrl.GetString()
+                                : null,
+                PlayUrl = item.TryGetProperty("video", out var videoObj2) &&
+                          videoObj2.TryGetProperty("play_addr", out var playAddr) &&
+                          playAddr.TryGetProperty("url", out var url)
+                          ? url.GetString()
+                          : null,
+                Author = item.TryGetProperty("author", out var authorObj) 
+                         ? new TikTokAuthor
+                         {
+                             Username = authorObj.TryGetProperty("unique_id", out var uname) ? uname.GetString() : null,
+                             DisplayName = authorObj.TryGetProperty("nickname", out var dname) ? dname.GetString() : null,
+                             AvatarUrl = authorObj.TryGetProperty("avatar_thumb", out var avatar) &&
+                                         avatar.TryGetProperty("url_list", out var urlList) &&
+                                         urlList.ValueKind == JsonValueKind.Array && urlList.GetArrayLength() > 0
+                                         ? urlList[0].GetString()
+                                         : null
+                         }
+                         : null
+            };
+
+            posts.Add(video);
+        }
+        return posts.OrderByDescending(v => v.VideoId).ToList();
     }
 
     public Task<SocialPostResult> EditPostAsync(string accessToken, string videoId, string newTitle)

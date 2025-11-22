@@ -127,15 +127,7 @@ public class YouTubeService : IYouTubeService
             };
         }
     }
-
-
-    public async Task<SocialPostResult> EditPostAsync(
-string accessToken,
-string videoId,
-string newTitle,
-string newDescription,
-string[]? newTags = null,
-string newPrivacy = "private")
+    public async Task<SocialPostResult> EditPostAsync(string accessToken,string videoId,string newTitle,string newDescription,string[]? newTags = null,string newPrivacy = "private")
     {
         var result = new SocialPostResult();
 
@@ -143,13 +135,10 @@ string newPrivacy = "private")
         {
             var youtube = CreateYouTubeClient(accessToken);
 
-            // Fetch the video first
             var getRequest = youtube.Videos.List("snippet,status");
             getRequest.Id = videoId;
-
             var response = await getRequest.ExecuteAsync();
             var video = response.Items.FirstOrDefault();
-
             if (video == null)
             {
                 return new SocialPostResult
@@ -208,7 +197,7 @@ string newPrivacy = "private")
         return response.Items.FirstOrDefault();
     }
 
-    public async Task<IList<Video>> GetAllPostsAsync(string accessToken, string channelId, int limit = 10)
+    public async Task<IList<YouTubeVideoResponse>> GetAllPostsAsync(string accessToken, string channelId, int limit = 30)
     {
         var youtube = CreateYouTubeClient(accessToken);
 
@@ -219,17 +208,25 @@ string newPrivacy = "private")
         request.Order = SearchResource.ListRequest.OrderEnum.Date;
 
         var response = await request.ExecuteAsync();
-
-        return response.Items.Select(i => new Video
+        var posts = new List<YouTubeVideoResponse>();
+        foreach (var item in response.Items)
         {
-            Id = i.Id.VideoId,
-            Snippet = new VideoSnippet
+            posts.Add(new YouTubeVideoResponse
             {
-                Title = i.Snippet.Title,
-                Description = i.Snippet.Description,
-                Thumbnails = i.Snippet.Thumbnails,
-                PublishedAt = i.Snippet.PublishedAt
-            }
-        }).ToList();
+                VideoId = item.Id.ToString(),
+                Title = item.Snippet?.Title,
+                Description = item.Snippet?.Description,
+                PublishedAt = item.Snippet?.PublishedAt ?? DateTime.MinValue,
+                Thumbnails = item.Snippet?.Thumbnails != null
+                    ? new YouTubeThumbnails
+                    {
+                        Default = item.Snippet.Thumbnails.Default__.Url,
+                        Medium = item.Snippet.Thumbnails.Medium.Url,
+                        High = item.Snippet.Thumbnails.High.Url
+                    }
+                    : null
+            });
+        }
+        return posts.OrderByDescending(p => p.PublishedAt).ToList();
     }
 }

@@ -12,5 +12,8 @@ public interface IPostService
 
     Task<BaseResponse> DeletePostAsync(string postId, int userId);
 
-    Task<PostsResponseModel> GetAllPostsAsync(int userId, int limit = 5);
+    Task<PostsResponseModel> GetAllPostsAsync(int userId, int limit = 20);
+    Task<TwitterResponseModel> GetTwitterPosts(int userId, int limit);
+    Task<FacebookResponseModel> GetFacebookPosts(int userId, int limit);
+    Task<InstagramResponseModel> GetInstagramPosts(int userId, int limit);
 }

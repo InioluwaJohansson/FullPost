@@ -5,6 +5,7 @@ public class Post : AuditableEntity
 {
     public string PostId { get; set; } = Guid.NewGuid().ToString();
     public int UserId { get; set; }
+    public string Platform { get; set; }
     public string Title { get; set;}
     public string Caption { get; set; } = string.Empty;
     public string MediaUrls { get; set; }

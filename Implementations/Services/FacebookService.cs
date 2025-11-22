@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json.Linq;
 using FullPost.Interfaces.Services;
 using FullPost.Models.DTOs;
+using System.Text.Json;
 
 namespace FullPost.Implementations.Services;
 
@@ -28,7 +29,6 @@ public class FacebookService : IFacebookService
 
         try
         {
-            // TEXT POST ONLY --------------------------
             if (mediaFiles == null || mediaFiles.Count == 0)
             {
                 var url = $"https://graph.facebook.com/{pageId}/feed";
@@ -56,7 +56,6 @@ public class FacebookService : IFacebookService
                 };
             }
 
-            // MEDIA POST -------------------------------
             string? lastMediaPostId = null;
 
             foreach (var file in mediaFiles)
@@ -90,7 +89,6 @@ public class FacebookService : IFacebookService
 
                 if (!string.IsNullOrEmpty(mediaId))
                 {
-                    // Fetch URL of the uploaded media
                     var mediaInfoUrl = isVideo
                         ? $"https://graph.facebook.com/{mediaId}?fields=permalink_url,source&access_token={accessToken}"
                         : $"https://graph.facebook.com/{mediaId}?fields=images,link&access_token={accessToken}";
@@ -134,7 +132,6 @@ public class FacebookService : IFacebookService
     {
         try
         {
-            // If no media change → just edit message
             if (newMedia == null || newMedia.Count == 0)
             {
                 var url = $"https://graph.facebook.com/{postId}";
@@ -157,7 +154,6 @@ public class FacebookService : IFacebookService
                 };
             }
 
-            // Facebook does NOT support editing media → delete + recreate
             await DeletePostAsync(accessToken, postId);
 
             return await CreatePostAsync(pageId, accessToken, newMessage, newMedia);
@@ -180,9 +176,53 @@ public class FacebookService : IFacebookService
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<string> GetPostsAsync(string pageId, string accessToken, int limit = 5)
+    public async Task<IList<FacebookPostResponse>> GetPostsAsync(string pageId, string accessToken, int limit = 30)
     {
         var url = $"https://graph.facebook.com/{pageId}/posts?limit={limit}&access_token={accessToken}";
-        return await _httpClient.GetStringAsync(url);
+        var rawJson = await _httpClient.GetStringAsync(url);
+        var doc = JsonDocument.Parse(rawJson);
+        var posts = new List<FacebookPostResponse>();
+        foreach (var postElement in doc.RootElement.GetProperty("data").EnumerateArray())
+        {
+            var post = new FacebookPostResponse
+            {
+                Id = postElement.GetProperty("id").GetString(),
+                Message = postElement.TryGetProperty("message", out var msg) ? msg.GetString() : null,
+                CreatedTime = postElement.TryGetProperty("created_time", out var ct)
+                              ? DateTime.Parse(ct.GetString())
+                              : DateTime.MinValue,
+                Media = new List<FacebookMediaItem>()
+            };
+            if (postElement.TryGetProperty("attachments", out var attachments))
+            {
+                foreach (var attach in attachments.GetProperty("data").EnumerateArray())
+                {
+                    if (attach.TryGetProperty("subattachments", out var subattachments))
+                    {
+                        foreach (var sub in subattachments.GetProperty("data").EnumerateArray())
+                        {
+                            post.Media.Add(new FacebookMediaItem
+                            {
+                                MediaType = sub.GetProperty("media_type").GetString(),
+                                MediaUrl = sub.GetProperty("media_url").GetString(),
+                                ThumbnailUrl = sub.TryGetProperty("thumbnail_url", out var thumb) ? thumb.GetString() : null
+                            });
+                        }
+                    }
+                    else
+                    {
+                        post.Media.Add(new FacebookMediaItem
+                        {
+                            MediaType = attach.GetProperty("media_type").GetString(),
+                            MediaUrl = attach.GetProperty("media_url").GetString(),
+                            ThumbnailUrl = attach.TryGetProperty("thumbnail_url", out var thumb) ? thumb.GetString() : null
+                        });
+                    }
+                }
+            }
+
+            posts.Add(post);
+        }
+        return posts.OrderByDescending(p => p.CreatedTime).ToList();
     }
 }

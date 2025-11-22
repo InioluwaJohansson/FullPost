@@ -18,14 +18,20 @@ public class EditPostDto
 }
 public class GetPostDto
 {
-    public string Platform { get; set; }
-    public string Id { get; set; }
-    public string Text { get; set; }
-    public string MediaUrl { get; set; }
+    public List<string> Platform { get; set; }
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public string Caption { get; set; }
+    public List<string> MediaUrl { get; set; }
     public DateTime CreatedAt { get; set; }
-    public string Permalink { get; set; }
+    public string TwitterPostLink { get; set; }
+    public string FacebookPostLink { get; set; }
+    public string InstagramPostLink { get; set; }
+    public string YouTubePostLink { get; set; }
+    public string TikTokPostLink { get; set; }
+    public string LinkedInPostLink { get; set; }
 }
 public class PostsResponseModel : BaseResponse
 {
-    public new Dictionary<string, object> Data { get; set; } = new Dictionary<string, object>();
+    public new ICollection<GetPostDto> Data { get; set; } = new HashSet<GetPostDto>();
 }

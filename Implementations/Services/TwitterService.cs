@@ -29,7 +29,6 @@ public class TwitterService : ITwitterService
 
         List<IMedia>? uploadedMedia = null;
 
-        // Upload media
         if (mediaFiles != null && mediaFiles.Count > 0)
         {
             uploadedMedia = new List<IMedia>();
@@ -98,7 +97,7 @@ public class TwitterService : ITwitterService
         }
     }
 
-    public async Task<IEnumerable<SocialPostResult>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, int count = 5)
+    public async Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, int count = 50)
     {
         var client = CreateClient(userAccessToken, userAccessSecret);
         var user = await client.Users.GetAuthenticatedUserAsync();
@@ -110,13 +109,26 @@ public class TwitterService : ITwitterService
 
         var tweets = await client.Timelines.GetUserTimelineAsync(timelineParams);
 
-        return tweets.Select(t => new SocialPostResult
+        var result = tweets.Select(t => new TwitterTweetResponse
         {
-            Success = true,
-            PostId = t.IdStr,
-            MediaUrls = t.Media?.Count > 0 ? t.Media.Select(m => m.MediaURLHttps).ToList() : null,
-            Permalink = $"https://twitter.com/{t.CreatedBy.ScreenName}/status/{t.IdStr}",
-            RawResponse = t.FullText
-        });
+            Id = t.IdStr,
+            Text = t.FullText,
+            CreatedAt = t.CreatedAt.DateTime,
+            Media = new TwitterMedia
+            {
+                Photos = t.Media?.Where(m => m.MediaType == "photo").Select(m => m.MediaURLHttps).ToList(),
+                Videos = t.Media?.Where(m => m.MediaType == "video").Select(m => m.MediaURLHttps).ToList()
+            },
+            User = new TwitterUser
+            {
+                Username = t.CreatedBy.ScreenName,
+                Name = t.CreatedBy.Name,
+                ProfileImageUrl = t.CreatedBy.ProfileImageUrl
+            }
+        })
+        .OrderByDescending(t => t.CreatedAt) // Most recent first
+        .ToList();
+
+        return result;
     }
 }

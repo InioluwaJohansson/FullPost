@@ -98,7 +98,6 @@ public class InstagramService : IInstagramService
         var response = await _httpClient.PostAsync(endpoint, new FormUrlEncodedContent(data));
         return await response.Content.ReadAsStringAsync();
     }
-
     private async Task<(string PostId, string Permalink)> FetchPublishedPostDetailsAsync(string mediaId, string accessToken)
     {
         var endpoint = $"https://graph.facebook.com/v21.0/{mediaId}?fields=id,permalink&access_token={accessToken}";
@@ -115,10 +114,6 @@ public class InstagramService : IInstagramService
 
         return (id!, link ?? "");
     }
-
-    // ----------------------------------------------------
-    // CREATE POST
-    // ----------------------------------------------------
     public async Task<SocialPostResult> CreatePostAsync(string igUserId, string accessToken, string caption, List<IFormFile>? mediaFiles = null)
     {
         if (mediaFiles == null || mediaFiles.Count == 0)
@@ -153,7 +148,6 @@ public class InstagramService : IInstagramService
 
             var postId = publishedIdJson.GetString()!;
 
-            // Fetch permalink
             var (pId, permalink) = await FetchPublishedPostDetailsAsync(postId, accessToken);
 
             return new SocialPostResult
@@ -174,10 +168,6 @@ public class InstagramService : IInstagramService
             };
         }
     }
-
-    // ----------------------------------------------------
-    // EDIT POST (delete + re-post)
-    // ----------------------------------------------------
     public async Task<SocialPostResult> EditPostAsync(string igUserId, string accessToken, string oldMediaId, string newCaption, List<IFormFile>? newMedia = null)
     {
         try
@@ -195,23 +185,40 @@ public class InstagramService : IInstagramService
             };
         }
     }
-
-    // ----------------------------------------------------
-    // DELETE POST
-    // ----------------------------------------------------
     public async Task<bool> DeletePostAsync(string accessToken, string mediaId)
     {
         var endpoint = $"https://graph.facebook.com/v21.0/{mediaId}?access_token={accessToken}";
         var response = await _httpClient.DeleteAsync(endpoint);
         return response.IsSuccessStatusCode;
     }
-
-    public async Task<string> GetPostsAsync(string igUserId, string accessToken, int limit = 5)
+    public async Task<IList<InstagramPostResponse>> GetPostsAsync(string igUserId, string accessToken, int limit = 30)
     {
-        var endpoint =
-            $"https://graph.facebook.com/v21.0/{igUserId}/media?fields=id,caption,media_type,media_url,permalink,timestamp&limit={limit}&access_token={accessToken}";
-
+        var endpoint = $"https://graph.facebook.com/v21.0/{igUserId}/media?fields=id,caption,media_type,media_url,permalink,timestamp&limit={limit}&access_token={accessToken}";
         var response = await _httpClient.GetAsync(endpoint);
-        return await response.Content.ReadAsStringAsync();
+        var rawJson = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(rawJson);
+        var posts = new List<InstagramPostResponse>();
+
+        foreach (var element in doc.RootElement.GetProperty("data").EnumerateArray())
+        {
+            var post = new InstagramPostResponse
+            {
+                Id = element.GetProperty("id").GetString(),
+                Caption = element.TryGetProperty("caption", out var cap) ? cap.GetString() : null,
+                Timestamp = element.TryGetProperty("timestamp", out var ts) ? DateTime.Parse(ts.GetString()) : DateTime.MinValue,
+                Media = new List<InstagramMediaItem>()
+            };
+
+            post.Media.Add(new InstagramMediaItem
+            {
+                Id = post.Id,
+                MediaType = element.GetProperty("media_type").GetString(),
+                MediaUrl = element.GetProperty("media_url").GetString(),
+                ThumbnailUrl = element.TryGetProperty("thumbnail_url", out var thumb) ? thumb.GetString() : null
+            });
+
+            posts.Add(post);
+        }
+        return posts.OrderByDescending(p => p.Timestamp).ToList();
     }
 }

@@ -55,12 +55,7 @@ public class LinkedInService : ILinkedInService
         return JsonDocument.Parse(json).RootElement;
     }
 
-    public async Task<SocialPostResult> CreatePostAsync(
-        string accessToken, 
-        string linkedInUserId, 
-        string message, 
-        string? mediaUrl = null
-    )
+    public async Task<SocialPostResult> CreatePostAsync(string accessToken, string linkedInUserId, string message, string? mediaUrl = null)
     {
         var postData = new
         {
@@ -88,7 +83,6 @@ public class LinkedInService : ILinkedInService
                 value = "PUBLIC"
             }
         };
-
         var request = new HttpRequestMessage(HttpMethod.Post, $"{LinkedInApiBase}ugcPosts")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", accessToken) },
@@ -101,7 +95,6 @@ public class LinkedInService : ILinkedInService
         if (!response.IsSuccessStatusCode)
             throw new Exception($"LinkedIn post failed: {result}");
 
-        // Extract URN
         var json = JsonDocument.Parse(result).RootElement;
         string urn = json.GetProperty("id").GetString()!;
 
@@ -114,7 +107,7 @@ public class LinkedInService : ILinkedInService
         };
     }
 
-    public async Task<JsonElement> GetAllPostsAsync(string accessToken, string linkedInUserId)
+    public async Task<IList<LinkedInPostResponse>> GetAllPostsAsync(string accessToken, string linkedInUserId)
     {
         var request = new HttpRequestMessage(
             HttpMethod.Get,
@@ -128,15 +121,48 @@ public class LinkedInService : ILinkedInService
         if (!response.IsSuccessStatusCode)
             throw new Exception($"LinkedIn posts fetch failed: {json}");
 
-        return JsonDocument.Parse(json).RootElement;
-    }
+        var rawData = JsonDocument.Parse(json).RootElement;
+        var posts = new List<LinkedInPostResponse>();
 
+        if (rawData.TryGetProperty("elements", out var elements))
+        {
+            foreach (var item in elements.EnumerateArray())
+            {
+                var post = new LinkedInPostResponse
+                {
+                    Urn = item.TryGetProperty("id", out var id) ? id.GetString() : null,
+                    Text = item.TryGetProperty("specificContent", out var content) &&
+                           content.TryGetProperty("com.linkedin.ugc.ShareContent", out var shareContent) &&
+                           shareContent.TryGetProperty("shareCommentary", out var commentary) &&
+                           commentary.TryGetProperty("text", out var text)
+                           ? text.GetString()
+                           : null,
+                    CreatedAt = item.TryGetProperty("created", out var created) &&
+                                created.TryGetProperty("time", out var time)
+                                ? DateTimeOffset.FromUnixTimeMilliseconds(time.GetInt64()).DateTime
+                                : DateTime.MinValue,
+                    Media = new LinkedInMedia()
+                };
+
+                if (item.TryGetProperty("content", out var contentObj) &&
+                    contentObj.TryGetProperty("media", out var mediaArray) &&
+                    mediaArray.ValueKind == JsonValueKind.Array &&
+                    mediaArray.GetArrayLength() > 0)
+                {
+                    var mediaItem = mediaArray[0];
+                    post.Media.MediaType = mediaItem.TryGetProperty("mediaType", out var type) ? type.GetString() : null;
+                    post.Media.Url = mediaItem.TryGetProperty("url", out var url) ? url.GetString() : null;
+                }
+
+                posts.Add(post);
+            }
+        }
+        return posts.OrderByDescending(p => p.CreatedAt).ToList();
+    }
     public async Task<SocialPostResult> EditPostAsync(string accessToken, string postUrn, string linkedInUserId, string newMessage, string? mediaUrl = null)
     {
-        // Step 1: Delete the original post
         await DeletePostAsync(accessToken, postUrn);
 
-        // Step 2: Create a new post with the updated message and optional media
         var newPost = await CreatePostAsync(accessToken, linkedInUserId, newMessage, mediaUrl);
 
         return new SocialPostResult
@@ -148,7 +174,6 @@ public class LinkedInService : ILinkedInService
             RawResponse = newPost.RawResponse
         };
     }
-
     public async Task<bool> DeletePostAsync(string accessToken, string postUrn)
     {
         var request = new HttpRequestMessage(HttpMethod.Delete, $"{LinkedInApiBase}ugcPosts/{postUrn}");
@@ -162,7 +187,6 @@ public class LinkedInService : ILinkedInService
 
         return true;
     }
-
     public async Task<string> ExchangeCodeForTokenAsync(string code)
     {
         var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://www.linkedin.com/oauth/v2/accessToken")
