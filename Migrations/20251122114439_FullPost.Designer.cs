@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FullPost.Migrations
 {
     [DbContext(typeof(FullPostContext))]
-    [Migration("20251119012057_FullPost")]
+    [Migration("20251122114439_FullPost")]
     partial class FullPost
     {
         /// <inheritdoc />
@@ -324,6 +324,10 @@ namespace FullPost.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("MediaUrls")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Platform")
                         .IsRequired()
                         .HasColumnType("longtext");
 

@@ -46,13 +46,13 @@ public class SubscriptionService : ISubscriptionService
             description = subscriptionDto.Description,
             send_invoices = true
         };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync("https://api.paystack.co/plan", content);
-        var result = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
-            return new BaseResponse { Status = false, Message = $"Failed to create plan: {result}" };
-        var json = JsonDocument.Parse(result);
-        var planCode = json.RootElement.GetProperty("data").GetProperty("plan_code").GetString();
+        // var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        // var response = await _httpClient.PostAsync("https://api.paystack.co/plan", content);
+        // var result = await response.Content.ReadAsStringAsync();
+        // if (!response.IsSuccessStatusCode)
+        //     return new BaseResponse { Status = false, Message = $"Failed to create plan: {result}" };
+        // var json = JsonDocument.Parse(result);
+        // var planCode = json.RootElement.GetProperty("data").GetProperty("plan_code").GetString();
         int savedNoOfPosts = subscriptionDto.NoOfPosts;
         if(subscriptionDto.PlanType == SubscriptionPlans.Premium) savedNoOfPosts = int.MaxValue;
         var plan = new SubscriptionPlan
@@ -61,7 +61,7 @@ public class SubscriptionService : ISubscriptionService
             Price = subscriptionDto.Amount,
             Interval = subscriptionDto.Interval,
             Description = subscriptionDto.Description,
-            PaystackPlanCode = planCode,
+            PaystackPlanCode = null,
             PlanType = subscriptionDto.PlanType,
             NoOfPosts = savedNoOfPosts,
         };

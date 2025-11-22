@@ -324,6 +324,10 @@ namespace FullPost.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("PostId")
                         .IsRequired()
                         .HasColumnType("longtext");
