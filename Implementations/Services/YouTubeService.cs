@@ -197,7 +197,7 @@ public class YouTubeService : IYouTubeService
         return response.Items.FirstOrDefault();
     }
 
-    public async Task<IList<YouTubeVideoResponse>> GetAllPostsAsync(string accessToken, string channelId, int limit = 30)
+    public async Task<IList<YouTubeVideoResponse>> GetAllPostsAsync(string accessToken, string channelId, int start, int limit = 50)
     {
         var youtube = CreateYouTubeClient(accessToken);
 

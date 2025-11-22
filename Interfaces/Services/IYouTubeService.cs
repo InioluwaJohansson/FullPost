@@ -8,5 +8,5 @@ public interface IYouTubeService
     Task<SocialPostResult> EditPostAsync(string accessToken, string videoId, string newTitle, string newDescription, string[]? newTags = null, string newPrivacy = "private");
     Task<bool> DeletePostAsync(string accessToken, string videoId);
     Task<Video?> GetPostAsync(string accessToken, string videoId);
-    Task<IList<YouTubeVideoResponse>> GetAllPostsAsync(string accessToken, string channelId, int limit = 10);
+    Task<IList<YouTubeVideoResponse>> GetAllPostsAsync(string accessToken, string channelId, int start, int limit = 10);
 }

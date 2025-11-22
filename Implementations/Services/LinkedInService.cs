@@ -107,7 +107,7 @@ public class LinkedInService : ILinkedInService
         };
     }
 
-    public async Task<IList<LinkedInPostResponse>> GetAllPostsAsync(string accessToken, string linkedInUserId, int start, int limit)
+    public async Task<IList<LinkedInPostResponse>> GetAllPostsAsync(string accessToken, string linkedInUserId, int start, int limit = 50)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, $"{LinkedInApiBase}ugcPosts?q=authors&authors=List(urn:li:person:{linkedInUserId})&start={start}&count={limit}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);

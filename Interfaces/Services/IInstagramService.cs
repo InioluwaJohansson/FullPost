@@ -12,5 +12,5 @@ public interface IInstagramService
 
     Task<bool> DeletePostAsync(string accessToken, string mediaId);
 
-    Task<IList<InstagramPostResponse>> GetPostsAsync(string igUserId,string accessToken,int limit = 5);
+    Task<IList<InstagramPostResponse>> GetPostsAsync(string igUserId, string accessToken, int start, int limit = 5);
 }

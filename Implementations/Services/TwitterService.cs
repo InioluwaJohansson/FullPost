@@ -57,7 +57,6 @@ public class TwitterService : ITwitterService
         if (tweet == null)
             throw new Exception("Tweet could not be created.");
 
-        //Fetch tweet again to get media URLs
     //  var tweetFetched = await client.Tweets.GetTweetAsync(tweet.Id);
 
     //  var mediaUrls = tweetFetched?.ExtendedEntities?.Media?.Select(m => m.MediaURLHttps).ToList();
@@ -97,7 +96,7 @@ public class TwitterService : ITwitterService
         }
     }
 
-    public async Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, int count = 50)
+    public async Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, int start, int count = 50)
     {
         var client = CreateClient(userAccessToken, userAccessSecret);
         var user = await client.Users.GetAuthenticatedUserAsync();
@@ -126,8 +125,7 @@ public class TwitterService : ITwitterService
                 ProfileImageUrl = t.CreatedBy.ProfileImageUrl
             }
         })
-        .OrderByDescending(t => t.CreatedAt) // Most recent first
-        .ToList();
+        .OrderByDescending(t => t.CreatedAt).ToList();
 
         return result;
     }

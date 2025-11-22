@@ -176,7 +176,7 @@ public class FacebookService : IFacebookService
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<IList<FacebookPostResponse>> GetPostsAsync(string pageId, string accessToken, int limit = 30)
+    public async Task<IList<FacebookPostResponse>> GetPostsAsync(string pageId, string accessToken, int start, int limit = 50)
     {
         var url = $"https://graph.facebook.com/{pageId}/posts?limit={limit}&access_token={accessToken}";
         var rawJson = await _httpClient.GetStringAsync(url);

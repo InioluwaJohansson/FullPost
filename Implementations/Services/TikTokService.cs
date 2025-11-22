@@ -76,7 +76,7 @@ public class TikTokService : ITikTokService
         };
     }
 
-    public async Task<IList<TikTokVideoResponse>> GetAllPostsAsync(string accessToken, string openId, int limit = 50)
+    public async Task<IList<TikTokVideoResponse>> GetAllPostsAsync(string accessToken, string openId, int start, int limit = 50)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, $"{TikTokApiBase}video/list/?open_id={openId}&max_count={limit}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);

@@ -11,6 +11,6 @@ public interface IFacebookService
 
     Task<bool> DeletePostAsync(string accessToken,string postId);
 
-    Task<IList<FacebookPostResponse>> GetPostsAsync(string pageId,string accessToken,int limit = 5);
+    Task<IList<FacebookPostResponse>> GetPostsAsync(string pageId,string accessToken,  int start,int limit = 50);
 }
 

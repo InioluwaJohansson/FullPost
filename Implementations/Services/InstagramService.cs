@@ -191,7 +191,7 @@ public class InstagramService : IInstagramService
         var response = await _httpClient.DeleteAsync(endpoint);
         return response.IsSuccessStatusCode;
     }
-    public async Task<IList<InstagramPostResponse>> GetPostsAsync(string igUserId, string accessToken, int limit = 30)
+    public async Task<IList<InstagramPostResponse>> GetPostsAsync(string igUserId, string accessToken, int start, int limit = 50)
     {
         var endpoint = $"https://graph.facebook.com/v21.0/{igUserId}/media?fields=id,caption,media_type,media_url,permalink,timestamp&limit={limit}&access_token={accessToken}";
         var response = await _httpClient.GetAsync(endpoint);
