@@ -75,4 +75,82 @@ public class PostController : Controller
         var result = await _postService.GetAllPostsAsync(userId);
         return Ok(result);
     }
+    [Authorize]
+    [HttpGet("GetTwitterPosts/{userId}/{limit}")]
+    public async Task<IActionResult> GetTwitterPosts(int userId, int limit)
+    {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
+        
+        var result = await _postService.GetTwitterPosts(userId, limit);
+        return Ok(result);
+    }
+    [Authorize]
+    [HttpGet("GetFacebookPosts/{userId}/{limit}")]
+    public async Task<IActionResult> GetFacebookPosts(int userId, int limit)
+    {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
+        
+        var result = await _postService.GetFacebookPosts(userId, limit);
+        return Ok(result);
+    }
+    [Authorize]
+    [HttpGet("GetInstagramPosts/{userId}/{limit}")]
+    public async Task<IActionResult> GetInstagramPosts(int userId, int limit)
+    {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
+        
+        var result = await _postService.GetInstagramPosts(userId, limit);
+        return Ok(result);
+    }
+    [Authorize]
+    [HttpGet("GetYouTubePosts/{userId}/{limit}")]
+    public async Task<IActionResult> GetYouTubePosts(int userId, int limit)
+    {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
+        
+        var result = await _postService.GetYouTubePosts(userId, limit);
+        return Ok(result);
+    }
+    [Authorize]
+    [HttpGet("GetTikTokPosts/{userId}/{limit}")]
+    public async Task<IActionResult> GetTikTokPosts(int userId, int limit)
+    {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
+        
+        var result = await _postService.GetTikTokPosts(userId, limit);
+        return Ok(result);
+    }
+    [Authorize]
+    [HttpGet("GetLinkedInPosts/{userId}/{start}/{limit}")]
+    public async Task<IActionResult> GetLinkedInPosts(int userId, int start, int limit)
+    {
+        var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
+            return Unauthorized();
+        if (loggedInUserId != userId)
+            return Forbid("You are not allowed to access this user's data.");
+        
+        var result = await _postService.GetLinkedInPosts(userId, start, limit);
+        return Ok(result);
+    }
 }

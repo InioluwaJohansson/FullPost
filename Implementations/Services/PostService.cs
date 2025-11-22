@@ -420,14 +420,14 @@ public class PostService : IPostService
         }
         return new TikTokResponseModel { Status = false, Message = "Error not logged in to TikTok" };
     }
-    public async Task<LinkedInResponseModel> GetLinkedInPosts(int userId, int limit)
+    public async Task<LinkedInResponseModel> GetLinkedInPosts(int userId, int start, int limit)
     {
         var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
         if (customer == null)
             return new LinkedInResponseModel { Status = false, Message = "Customer not found." };
         if (!string.IsNullOrEmpty(customer.LinkedInAccessToken))
         {
-            var linkedInPosts = await _linkedinService.GetAllPostsAsync(customer.LinkedInAccessToken!, customer.LinkedInUserId!);
+            var linkedInPosts = await _linkedinService.GetAllPostsAsync(customer.LinkedInAccessToken!, customer.LinkedInUserId!, start, limit);
             if(linkedInPosts != null)
                 return new LinkedInResponseModel { Data = linkedInPosts, Status = true, Message = "TikTik posts retrieved" };
             return new LinkedInResponseModel { Data = null, Status = false, Message = "TikTok posts unretrieved" };

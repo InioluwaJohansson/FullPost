@@ -16,4 +16,7 @@ public interface IPostService
     Task<TwitterResponseModel> GetTwitterPosts(int userId, int limit);
     Task<FacebookResponseModel> GetFacebookPosts(int userId, int limit);
     Task<InstagramResponseModel> GetInstagramPosts(int userId, int limit);
+    Task<YouTubeResponseModel> GetYouTubePosts(int userId, int limit);
+    Task<TikTokResponseModel> GetTikTokPosts(int userId, int limit);
+    Task<LinkedInResponseModel> GetLinkedInPosts(int userId, int start, int limit);
 }
