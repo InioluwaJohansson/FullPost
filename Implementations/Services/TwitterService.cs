@@ -69,8 +69,6 @@ public class TwitterService : ITwitterService
             Permalink = $"https://twitter.com/{tweet.CreatedBy.ScreenName}/status/{tweet.IdStr}"
         };
     }
-
-
     public async Task<SocialPostResult?> EditTweetAsync(string userAccessToken, string userAccessSecret, string tweetId, string newMessage, List<IFormFile>? newMedia = null)
     {
         var client = CreateClient(userAccessToken, userAccessSecret);
@@ -81,7 +79,6 @@ public class TwitterService : ITwitterService
         await client.Tweets.DestroyTweetAsync(long.Parse(tweetId));
         return await PostTweetAsync(userAccessToken, userAccessSecret, newMessage, newMedia);
     }
-
     public async Task<bool> DeleteTweetAsync(string userAccessToken, string userAccessSecret, string tweetId)
     {
         var client = CreateClient(userAccessToken, userAccessSecret);
@@ -95,19 +92,18 @@ public class TwitterService : ITwitterService
             return false;
         }
     }
-
-    public async Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, int start, int count = 50)
+    public async Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, long? sinceId = null,  int count = 100)
     {
         var client = CreateClient(userAccessToken, userAccessSecret);
         var user = await client.Users.GetAuthenticatedUserAsync();
-
+        long? maxId = 2000;
         var timelineParams = new GetUserTimelineParameters(user)
         {
-            PageSize = count
+            PageSize = count,
+            SinceId = sinceId ?? 0,
+            MaxId = maxId
         };
-
         var tweets = await client.Timelines.GetUserTimelineAsync(timelineParams);
-
         var result = tweets.Select(t => new TwitterTweetResponse
         {
             Id = t.IdStr,
@@ -123,9 +119,10 @@ public class TwitterService : ITwitterService
                 Username = t.CreatedBy.ScreenName,
                 Name = t.CreatedBy.Name,
                 ProfileImageUrl = t.CreatedBy.ProfileImageUrl
-            }
-        })
-        .OrderByDescending(t => t.CreatedAt).ToList();
+            },
+            Likes = t.FavoriteCount,
+            Comments = t.RetweetCount
+        }).OrderByDescending(t => t.CreatedAt).ToList();
 
         return result;
     }

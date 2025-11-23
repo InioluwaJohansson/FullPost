@@ -178,7 +178,7 @@ public class FacebookService : IFacebookService
 
     public async Task<IList<FacebookPostResponse>> GetPostsAsync(string pageId, string accessToken, int start, int limit = 50)
     {
-        var url = $"https://graph.facebook.com/{pageId}/posts?limit={limit}&access_token={accessToken}";
+        var url = $"https://graph.facebook.com/{pageId}/posts?fields=id,message,created_time,attachments,reactions.summary(true),comments.summary(true),insights.metric(post_video_views)&limit={limit}&access_token={accessToken}";
         var rawJson = await _httpClient.GetStringAsync(url);
         var doc = JsonDocument.Parse(rawJson);
         var posts = new List<FacebookPostResponse>();
@@ -189,8 +189,8 @@ public class FacebookService : IFacebookService
                 Id = postElement.GetProperty("id").GetString(),
                 Message = postElement.TryGetProperty("message", out var msg) ? msg.GetString() : null,
                 CreatedTime = postElement.TryGetProperty("created_time", out var ct)
-                              ? DateTime.Parse(ct.GetString())
-                              : DateTime.MinValue,
+                            ? DateTime.Parse(ct.GetString())
+                            : DateTime.MinValue,
                 Media = new List<FacebookMediaItem>()
             };
             if (postElement.TryGetProperty("attachments", out var attachments))
@@ -220,7 +220,33 @@ public class FacebookService : IFacebookService
                     }
                 }
             }
-
+            post.Likes =
+                postElement.TryGetProperty("reactions", out var reactions) &&
+                reactions.TryGetProperty("summary", out var rSummary) &&
+                rSummary.TryGetProperty("total_count", out var likeCount)
+                ? likeCount.GetInt32()
+                : 0;
+            post.Comments =
+                postElement.TryGetProperty("comments", out var comments) &&
+                comments.TryGetProperty("summary", out var cSummary) &&
+                cSummary.TryGetProperty("total_count", out var commentCount)
+                ? commentCount.GetInt32()
+                : 0;
+            post.Views =
+                postElement.TryGetProperty("insights", out var insights) &&
+                insights.TryGetProperty("data", out var insightsData)
+                ? insightsData.EnumerateArray()
+                    .Where(x =>
+                        x.TryGetProperty("name", out var name) &&
+                        name.GetString() == "post_video_views")
+                    .Select(x =>
+                        x.GetProperty("values")
+                        .EnumerateArray()
+                        .First()
+                        .GetProperty("value")
+                        .GetInt32())
+                    .FirstOrDefault()
+                : (int?)null;
             posts.Add(post);
         }
         return posts.OrderByDescending(p => p.CreatedTime).ToList();

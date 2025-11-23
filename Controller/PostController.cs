@@ -47,7 +47,7 @@ public class PostController : Controller
         return result.Status ? Ok(result) : BadRequest(result);
     }
     [Authorize]
-    [HttpDelete("delete/{postId}")]
+    [HttpDelete("delete/{userId}/{postId}")]
     public async Task<IActionResult> DeletePost(string postId, int userId)
     {
         var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -71,15 +71,15 @@ public class PostController : Controller
         return Ok(result);
     }
     [Authorize]
-    [HttpGet("GetTwitterPosts/{userId}/{start}/{limit}")]
-    public async Task<IActionResult> GetTwitterPosts(int userId, int start, int limit)
+    [HttpGet("GetTwitterPosts/{userId}/{sinceId}")]
+    public async Task<IActionResult> GetTwitterPosts(int userId, long? sinceId = null)
     {
         var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
             return Unauthorized();
         if (loggedInUserId != userId)
             return Forbid("You are not allowed to access this user's data.");
-        var result = await _postService.GetTwitterPosts(userId, start, limit);
+        var result = await _postService.GetTwitterPosts(userId, sinceId);
         return Ok(result);
     }
     [Authorize]
@@ -96,14 +96,14 @@ public class PostController : Controller
     }
     [Authorize]
     [HttpGet("GetInstagramPosts/{userId}/{start}/{limit}")]
-    public async Task<IActionResult> GetInstagramPosts(int userId, int start, int limit)
+    public async Task<IActionResult> GetInstagramPosts(int userId, string limit, int start = 50)
     {
         var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!int.TryParse(loggedInUserIdString, out int loggedInUserId))
             return Unauthorized();
         if (loggedInUserId != userId)
             return Forbid("You are not allowed to access this user's data.");
-        var result = await _postService.GetInstagramPosts(userId, start, limit);
+        var result = await _postService.GetInstagramPosts(userId, limit, start);
         return Ok(result);
     }
     [Authorize]

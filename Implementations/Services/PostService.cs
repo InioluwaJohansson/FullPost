@@ -261,9 +261,9 @@ public class PostService : IPostService
                     post.FacebookPostLink = facebookResult.Permalink;
                     post.InstagramPostLink = instagramResult.Permalink;
                     post.YouTubePostLink = $"https://www.youtube.com/watch?v={youtubeResult.PostId}";
-                    post.TikTokPostLink = tiktokResult.Permalink;
+                    post.TikTokPostLink = $"https://www.tiktok.com/{customer.TikTokUsername}/video/{tiktokResult.PostId}";
                     post.LinkedInPostLink = linkedinResult.Permalink;
-                    post.Platform = JsonSerializer.Serialize(updatedMediaUrls) ?? null;
+                    post.Platform = platForms.Any() ? JsonSerializer.Serialize(platForms) : null;
                     post.LastModifiedOn = DateTime.UtcNow;
 
                     await _repository.Update(post);
@@ -365,14 +365,14 @@ public class PostService : IPostService
             return new PostsResponseModel { Status = false, Message = $"Failed to retrieve posts: {ex.Message}" };
         }
     }
-    public async Task<TwitterResponseModel> GetTwitterPosts(int userId, int start, int limit)
+    public async Task<TwitterResponseModel> GetTwitterPosts(int userId, long? sinceId = null, int count = 100)
     {
         var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
         if (customer == null)
             return new TwitterResponseModel { Status = false, Message = "Customer not found." };
         if (!string.IsNullOrEmpty(customer.TwitterAccessToken))
         {
-            var twitterPosts = await _twitterService.GetUserTweetsAsync(customer.TwitterAccessToken!, customer.TwitterAccessSecret!, start, limit);
+            var twitterPosts = await _twitterService.GetUserTweetsAsync(customer.TwitterAccessToken!, customer.TwitterAccessSecret!, sinceId);
             if(twitterPosts != null)
                 return new TwitterResponseModel { Data = twitterPosts, Status = true, Message = "Tweets retrieved" };
             return new TwitterResponseModel { Data = null, Status = false, Message = "Tweets unretrieved" };
@@ -393,16 +393,16 @@ public class PostService : IPostService
         }
         return new FacebookResponseModel { Status = false, Message = "Error not logged in to facebook" };
     }
-    public async Task<InstagramResponseModel> GetInstagramPosts(int userId, int start, int limit)
+    public async Task<InstagramResponseModel> GetInstagramPosts(int userId,  string limit, int start = 50)
     {
         var customer = await _customerRepository.Get(c => c.UserId == userId && c.IsDeleted == false);
         if (customer == null)
             return new InstagramResponseModel { Status = false, Message = "Customer not found." };
         if (!string.IsNullOrEmpty(customer.InstagramAccessToken))
         {
-            var instagramPosts = await _instagramService.GetPostsAsync(customer.InstagramUserId!, customer.InstagramAccessToken!, start, limit);
-            if(instagramPosts != null)
-                return new InstagramResponseModel { Data = instagramPosts, Status = true, Message = "Instagram posts retrieved" };
+            var instagramPosts = await _instagramService.GetPostsAsync(customer.InstagramUserId!, customer.InstagramAccessToken!, limit, start);
+            if(instagramPosts.Item1 != null)
+                return new InstagramResponseModel { Data = instagramPosts.Item1, nextPagePointer = instagramPosts.Item2, Status = true, Message = "Instagram posts retrieved" };
             return new InstagramResponseModel { Data = null, Status = false, Message = "Instagram posts unretrieved" };
         }
         return new InstagramResponseModel { Status = false, Message = "Error not logged in to instagram" };

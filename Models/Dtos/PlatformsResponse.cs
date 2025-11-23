@@ -3,6 +3,9 @@ public class TwitterTweetResponse
 {
     public string Id { get; set; }
     public string Text { get; set; }
+    public int Views { get; set; }
+    public int Likes { get; set; }
+    public int Comments { get; set; }
     public TwitterMedia Media { get; set; }
     public TwitterUser User { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -22,6 +25,9 @@ public class FacebookPostResponse
 {
     public string Id { get; set; }
     public string Message { get; set; }
+    public int? Views { get; set; }
+    public int? Comments { get; set; }
+    public int Likes { get; set; }
     public List<FacebookMediaItem> Media { get; set; } = new();
     public DateTime CreatedTime { get; set; }
 }
@@ -38,6 +44,9 @@ public class TikTokVideoResponse
     public long Duration { get; set; }
     public string CoverImageUrl { get; set; }
     public string PlayUrl { get; set; }
+    public long Views { get; set; }
+    public long Likes { get; set; }
+    public long Comments { get; set; }
     public TikTokAuthor Author { get; set; }
 }
 public class TikTokAuthor
@@ -51,6 +60,10 @@ public class YouTubeVideoResponse
     public string VideoId { get; set; }
     public string Title { get; set; }
     public string Description { get; set; }
+    public ulong Views { get; set; }
+    public ulong Likes { get; set; }
+    public ulong Dislikes { get; set; }
+    public ulong Comments { get; set; }
     public YouTubeThumbnails Thumbnails { get; set; }
     public DateTime PublishedAt { get; set; }
 }
@@ -64,6 +77,9 @@ public class LinkedInPostResponse
 {
     public string Urn { get; set; }
     public string Text { get; set; }
+    public int Views { get; set; }
+    public int Likes { get; set; }
+    public int Comments { get; set; }
     public LinkedInMedia Media { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -76,6 +92,11 @@ public class InstagramPostResponse
 {
     public string Id { get; set; }
     public string Caption { get; set; }
+    public int Views { get; set; }
+    public int Likes { get; set; }
+    public int Impressions { get; set; }
+    public int Reach { get; set; }
+    public int Comments { get; set; }
     public DateTime Timestamp { get; set; }
     public List<InstagramMediaItem> Media { get; set; } = new();
 }
@@ -97,6 +118,7 @@ public class FacebookResponseModel : BaseResponse
 public class InstagramResponseModel : BaseResponse
 {
     public ICollection<InstagramPostResponse> Data { get; set; } = new HashSet<InstagramPostResponse>();
+    public string nextPagePointer { get; set; }
 }
 public class TikTokResponseModel : BaseResponse
 {

@@ -191,34 +191,96 @@ public class InstagramService : IInstagramService
         var response = await _httpClient.DeleteAsync(endpoint);
         return response.IsSuccessStatusCode;
     }
-    public async Task<IList<InstagramPostResponse>> GetPostsAsync(string igUserId, string accessToken, int start, int limit = 50)
+    public async Task<(IList<InstagramPostResponse>, string)> GetPostsAsync(string igUserId, string accessToken,string limit, int start = 100)
     {
-        var endpoint = $"https://graph.facebook.com/v21.0/{igUserId}/media?fields=id,caption,media_type,media_url,permalink,timestamp&limit={limit}&access_token={accessToken}";
-        var response = await _httpClient.GetAsync(endpoint);
-        var rawJson = await response.Content.ReadAsStringAsync();
-        var doc = JsonDocument.Parse(rawJson);
-        var posts = new List<InstagramPostResponse>();
+        var endpoint = $"https://graph.facebook.com/v21.0/{igUserId}/media" +
+                   $"?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp" +
+                   $"&limit={limit}&access_token={accessToken}";
 
-        foreach (var element in doc.RootElement.GetProperty("data").EnumerateArray())
+    if (!string.IsNullOrEmpty(limit))
+        endpoint += $"&after={limit}"; // <-- Start index handling
+
+    var response = await _httpClient.GetAsync(endpoint);
+    var rawJson = await response.Content.ReadAsStringAsync();
+    var doc = JsonDocument.Parse(rawJson);
+    var posts = new List<InstagramPostResponse>();
+
+    foreach (var element in doc.RootElement.GetProperty("data").EnumerateArray())
+    {
+        var postId = element.GetProperty("id").GetString();
+
+        // ----------------------------------------
+        // 1️⃣ Fetch likes + comments
+        // ----------------------------------------
+        var detailEndpoint =
+            $"https://graph.facebook.com/v21.0/{postId}" +
+            $"?fields=like_count,comments_count&access_token={accessToken}";
+        var detailJson = await _httpClient.GetStringAsync(detailEndpoint);
+        var detailDoc = JsonDocument.Parse(detailJson);
+        var detailRoot = detailDoc.RootElement;
+
+        var likeCount = detailRoot.TryGetProperty("like_count", out var lc) ? lc.GetInt32() : 0;
+        var commentCount = detailRoot.TryGetProperty("comments_count", out var cc) ? cc.GetInt32() : 0;
+        int videoViews = 0;
+        int impressions = 0;
+        int reach = 0;
+
+        var insightsEndpoint =
+            $"https://graph.facebook.com/v21.0/{postId}/insights" +
+            $"?metric=impressions,reach,video_views&access_token={accessToken}";
+        var insightsJson = await _httpClient.GetStringAsync(insightsEndpoint);
+        var insightsDoc = JsonDocument.Parse(insightsJson);
+
+        if (insightsDoc.RootElement.TryGetProperty("data", out JsonElement insightsArray))
         {
-            var post = new InstagramPostResponse
+            foreach (var metric in insightsArray.EnumerateArray())
             {
-                Id = element.GetProperty("id").GetString(),
-                Caption = element.TryGetProperty("caption", out var cap) ? cap.GetString() : null,
-                Timestamp = element.TryGetProperty("timestamp", out var ts) ? DateTime.Parse(ts.GetString()) : DateTime.MinValue,
-                Media = new List<InstagramMediaItem>()
-            };
+                var name = metric.GetProperty("name").GetString();
+                var value = metric.GetProperty("values")[0].GetProperty("value").GetInt32();
 
-            post.Media.Add(new InstagramMediaItem
-            {
-                Id = post.Id,
-                MediaType = element.GetProperty("media_type").GetString(),
-                MediaUrl = element.GetProperty("media_url").GetString(),
-                ThumbnailUrl = element.TryGetProperty("thumbnail_url", out var thumb) ? thumb.GetString() : null
-            });
-
-            posts.Add(post);
+                switch (name)
+                {
+                    case "impressions": impressions = value; break;
+                    case "reach": reach = value; break;
+                    case "video_views": videoViews = value; break;
+                }
+            }
         }
-        return posts.OrderByDescending(p => p.Timestamp).ToList();
+
+        var post = new InstagramPostResponse
+        {
+            Id = postId,
+            Caption = element.TryGetProperty("caption", out var cap) ? cap.GetString() : null,
+            Timestamp = element.TryGetProperty("timestamp", out var ts)
+                        ? DateTime.Parse(ts.GetString())
+                        : DateTime.MinValue,
+            Media = new List<InstagramMediaItem>(),
+            Likes = likeCount,
+            Comments = commentCount,
+            Views = videoViews,
+            Impressions = impressions,
+            Reach = reach
+        };
+
+        post.Media.Add(new InstagramMediaItem
+        {
+            Id = post.Id,
+            MediaType = element.GetProperty("media_type").GetString(),
+            MediaUrl = element.GetProperty("media_url").GetString(),
+            ThumbnailUrl = element.TryGetProperty("thumbnail_url", out var thumb) ? thumb.GetString() : null
+        });
+
+        posts.Add(post);
+    }
+    string nextCursor = null;
+
+    if (doc.RootElement.TryGetProperty("paging", out var paging) &&
+        paging.TryGetProperty("cursors", out var cursors) &&
+        cursors.TryGetProperty("after", out var after))
+    {
+        nextCursor = after.GetString();
+    }
+
+    return (posts.OrderByDescending(p => p.Timestamp).ToList(), nextCursor);
     }
 }

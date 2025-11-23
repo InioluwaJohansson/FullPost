@@ -10,5 +10,5 @@ public interface ITwitterService
     Task<SocialPostResult> PostTweetAsync(string userAccessToken, string userAccessSecret, string message, List<IFormFile>? mediaFiles = null);
     Task<SocialPostResult?> EditTweetAsync(string userAccessToken, string userAccessSecret, string tweetId, string newMessage, List<IFormFile>? newMedia = null);
     Task<bool> DeleteTweetAsync(string userAccessToken, string userAccessSecret, string tweetId);
-    Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, int start, int count = 50);
+    Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, long? sinceId = null, int count = 100);
 }
