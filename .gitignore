@@ -4,3 +4,4 @@
 appsettings.Development.json
 appsettings.*.json
 *.Secrets.json
+*.txt

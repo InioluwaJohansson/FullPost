@@ -9,4 +9,5 @@ public interface IYouTubeService
     Task<bool> DeletePostAsync(string accessToken, string videoId);
     Task<Video?> GetPostAsync(string accessToken, string videoId);
     Task<IList<YouTubeVideoResponse>> GetAllPostsAsync(string accessToken, string channelId, int start, int limit = 10);
+    Task<YouTubePlatformStats> GetStats(string accessToken);
 }

@@ -11,4 +11,5 @@ public interface ITwitterService
     Task<SocialPostResult?> EditTweetAsync(string userAccessToken, string userAccessSecret, string tweetId, string newMessage, List<IFormFile>? newMedia = null);
     Task<bool> DeleteTweetAsync(string userAccessToken, string userAccessSecret, string tweetId);
     Task<IList<TwitterTweetResponse>> GetUserTweetsAsync(string userAccessToken, string userAccessSecret, long? sinceId = null, int count = 100);
+    Task<PlatformStats> GetStats(string accessToken, string accessSecret, string bearerToken);
 }

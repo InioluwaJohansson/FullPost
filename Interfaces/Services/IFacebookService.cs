@@ -6,11 +6,9 @@ namespace FullPost.Interfaces.Services;
 public interface IFacebookService
 {
     Task<SocialPostResult> CreatePostAsync(string pageId,string accessToken,string message,List<IFormFile>? mediaFiles = null);
-
     Task<SocialPostResult> EditPostAsync(string pageId,string accessToken,string postId,string newMessage,List<IFormFile>? newMedia = null);
-
     Task<bool> DeletePostAsync(string accessToken,string postId);
-
     Task<IList<FacebookPostResponse>> GetPostsAsync(string pageId,string accessToken,  int start,int limit = 50);
+    Task<PlatformStats> GetStats(string accessToken);
 }
 

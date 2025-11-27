@@ -10,4 +10,5 @@ public interface ILinkedInService
     Task<SocialPostResult> EditPostAsync(string accessToken, string postUrn, string linkedInUserId, string newMessage, string? mediaUrl = null);
     Task<bool> DeletePostAsync(string accessToken, string postUrn);
     Task<string> ExchangeCodeForTokenAsync(string code);
+    Task<PlatformStats> GetStats(string accessToken, string linkedInUserId);
 }

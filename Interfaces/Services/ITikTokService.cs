@@ -10,4 +10,5 @@ public interface ITikTokService
     Task<SocialPostResult> EditPostAsync(string accessToken, string videoId, string newTitle);
     Task<bool> DeletePostAsync(string accessToken, string videoId);
     Task<JsonElement?> GetUserProfileAsync(string accessToken);
+    Task<PlatformStats> GetStats(string accessToken, string openId, int limit = int.MaxValue);
 }

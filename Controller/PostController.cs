@@ -95,7 +95,7 @@ public class PostController : Controller
         return Ok(result);
     }
     [Authorize]
-    [HttpGet("GetInstagramPosts/{userId}/{start}/{limit}")]
+    [HttpGet("GetInstagramPosts/{userId}/{limit}/{start}")]
     public async Task<IActionResult> GetInstagramPosts(int userId, string limit, int start = 50)
     {
         var loggedInUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

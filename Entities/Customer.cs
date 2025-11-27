@@ -7,6 +7,8 @@ public class Customer : AuditableEntity
     public User User { get; set; }
     public int UserId { get; set; }
     public string CustomerId { get; set; } = Guid.NewGuid().ToString().Substring(0, 17);
+    // public DashBoard DashBoard { get; set; }
+    // public int DashBoardId { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
     public string PictureUrl { get; set; } = "";

@@ -14,4 +14,5 @@ public class FullPostContext: DbContext
     public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
     public DbSet<UserSubscription> UserSubscriptions { get; set; }
     public DbSet<Post> Posts { get; set; }
+    public DbSet<Analytic> Analytics { get; set; }
 }

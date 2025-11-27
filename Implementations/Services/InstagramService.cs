@@ -283,4 +283,36 @@ public class InstagramService : IInstagramService
 
     return (posts.OrderByDescending(p => p.Timestamp).ToList(), nextCursor);
     }
+    public async Task<PlatformStats> GetStats(string accessToken)
+    {
+        var userResp = await _httpClient.GetStringAsync($"https://graph.facebook.com/v18.0/me?fields=followers_count&access_token={accessToken}");
+        var followers = JsonDocument.Parse(userResp).RootElement.GetProperty("followers_count").GetInt32();
+        var mediaResp = await _httpClient.GetStringAsync($"https://graph.facebook.com/v18.0/me/media?fields=like_count,insights.metric(impressions)&access_token={accessToken}");
+        var mediaJson = JsonDocument.Parse(mediaResp).RootElement.GetProperty("data");
+        int totalLikes = 0;
+        int totalImpressions = 0;
+        foreach (var m in mediaJson.EnumerateArray())
+        {
+            if (m.TryGetProperty("like_count", out var like)) totalLikes += like.GetInt32();
+
+            if (m.TryGetProperty("insights", out var insights))
+            {
+                foreach (var ins in insights.GetProperty("data").EnumerateArray())
+                {
+                    if (ins.TryGetProperty("name", out var name) &&
+                        name.GetString() == "impressions")
+                    {
+                        totalImpressions += ins.GetProperty("values")[0]
+                            .GetProperty("value").GetInt32();
+                    }
+                }
+            }
+        }
+        return new PlatformStats
+        {
+            Followers = followers,
+            Likes = totalLikes,
+            Views = totalImpressions
+        };
+    }
 }

@@ -109,78 +109,64 @@ public class LinkedInService : ILinkedInService
 
     public async Task<IList<LinkedInPostResponse>> GetAllPostsAsync(string accessToken, string linkedInUserId, int start, int limit = 50)
     {
-        var request = new HttpRequestMessage(
-        HttpMethod.Get,
-        $"{LinkedInApiBase}ugcPosts?q=authors&authors=List(urn:li:person:{linkedInUserId})&start={start}&count={limit}"
-    );
-    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-    var response = await _httpClient.SendAsync(request);
-    var json = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode)
-        throw new Exception($"LinkedIn posts fetch failed: {json}");
-
-    var rawData = JsonDocument.Parse(json).RootElement;
-    var posts = new List<LinkedInPostResponse>();
-
-    if (!rawData.TryGetProperty("elements", out var elements)) return posts;
-
-    foreach (var item in elements.EnumerateArray())
-    {
-        var post = new LinkedInPostResponse
+        var request = new HttpRequestMessage(HttpMethod.Get,$"{LinkedInApiBase}ugcPosts?q=authors&authors=List(urn:li:person:{linkedInUserId})&start={start}&count={limit}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var response = await _httpClient.SendAsync(request);
+        var json = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"LinkedIn posts fetch failed: {json}");
+        var rawData = JsonDocument.Parse(json).RootElement;
+        var posts = new List<LinkedInPostResponse>();
+        if (!rawData.TryGetProperty("elements", out var elements)) return posts;
+        foreach (var item in elements.EnumerateArray())
         {
-            Urn = item.TryGetProperty("id", out var id) ? id.GetString() : null,
-            Text = item.TryGetProperty("specificContent", out var content) &&
-                   content.TryGetProperty("com.linkedin.ugc.ShareContent", out var shareContent) &&
-                   shareContent.TryGetProperty("shareCommentary", out var commentary) &&
-                   commentary.TryGetProperty("text", out var text)
-                   ? text.GetString()
-                   : null,
-            CreatedAt = item.TryGetProperty("created", out var created) &&
-                        created.TryGetProperty("time", out var time)
-                        ? DateTimeOffset.FromUnixTimeMilliseconds(time.GetInt64()).DateTime
-                        : DateTime.MinValue,
-            Media = new LinkedInMedia()
-        };
-
-        if (item.TryGetProperty("content", out var contentObj) &&
-            contentObj.TryGetProperty("media", out var mediaArray) &&
-            mediaArray.ValueKind == JsonValueKind.Array &&
-            mediaArray.GetArrayLength() > 0)
-        {
-            var mediaItem = mediaArray[0];
-            post.Media.MediaType = mediaItem.TryGetProperty("mediaType", out var type) ? type.GetString() : null;
-            post.Media.Url = mediaItem.TryGetProperty("url", out var url) ? url.GetString() : null;
+            var post = new LinkedInPostResponse
+            {
+                Urn = item.TryGetProperty("id", out var id) ? id.GetString() : null,
+                Text = item.TryGetProperty("specificContent", out var content) &&
+                    content.TryGetProperty("com.linkedin.ugc.ShareContent", out var shareContent) &&
+                    shareContent.TryGetProperty("shareCommentary", out var commentary) &&
+                    commentary.TryGetProperty("text", out var text)
+                    ? text.GetString()
+                    : null,
+                CreatedAt = item.TryGetProperty("created", out var created) &&
+                            created.TryGetProperty("time", out var time)
+                            ? DateTimeOffset.FromUnixTimeMilliseconds(time.GetInt64()).DateTime
+                            : DateTime.MinValue,
+                Media = new LinkedInMedia()
+            };
+            if (item.TryGetProperty("content", out var contentObj) &&
+                contentObj.TryGetProperty("media", out var mediaArray) &&
+                mediaArray.ValueKind == JsonValueKind.Array &&
+                mediaArray.GetArrayLength() > 0)
+            {
+                var mediaItem = mediaArray[0];
+                post.Media.MediaType = mediaItem.TryGetProperty("mediaType", out var type) ? type.GetString() : null;
+                post.Media.Url = mediaItem.TryGetProperty("url", out var url) ? url.GetString() : null;
+            }
+            posts.Add(post);
         }
-
-        posts.Add(post);
-    }
-
-    foreach (var post in posts)
-    {
-        if (string.IsNullOrEmpty(post.Urn)) continue;
-
-        var socialRequest = new HttpRequestMessage(
-            HttpMethod.Get,
-            $"{LinkedInApiBase}socialActions/{post.Urn}"
-        );
-        socialRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-        var socialResponse = await _httpClient.SendAsync(socialRequest);
-        if (!socialResponse.IsSuccessStatusCode) continue;
-
-        var socialJson = await socialResponse.Content.ReadAsStringAsync();
-        var socialDoc = JsonDocument.Parse(socialJson).RootElement;
-
-        if (socialDoc.TryGetProperty("totalSocialActivityCounts", out var counts))
+        foreach (var post in posts)
         {
-            post.Likes = counts.TryGetProperty("likes", out var likes) ? likes.GetInt32() : 0;
-            post.Comments = counts.TryGetProperty("comments", out var comments) ? comments.GetInt32() : 0;
-            post.Views = counts.TryGetProperty("impressions", out var views) ? views.GetInt32() : 0;
-        }
-    }
+            if (string.IsNullOrEmpty(post.Urn)) continue;
+            var socialRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"{LinkedInApiBase}socialActions/{post.Urn}"
+            );
+            socialRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            var socialResponse = await _httpClient.SendAsync(socialRequest);
+            if (!socialResponse.IsSuccessStatusCode) continue;
+            var socialJson = await socialResponse.Content.ReadAsStringAsync();
+            var socialDoc = JsonDocument.Parse(socialJson).RootElement;
 
-    return posts.OrderByDescending(p => p.CreatedAt).ToList();
+            if (socialDoc.TryGetProperty("totalSocialActivityCounts", out var counts))
+            {
+                post.Likes = counts.TryGetProperty("likes", out var likes) ? likes.GetInt32() : 0;
+                post.Comments = counts.TryGetProperty("comments", out var comments) ? comments.GetInt32() : 0;
+                post.Views = counts.TryGetProperty("impressions", out var views) ? views.GetInt32() : 0;
+            }
+        }
+        return posts.OrderByDescending(p => p.CreatedAt).ToList();
     }
     public async Task<SocialPostResult> EditPostAsync(string accessToken, string postUrn, string linkedInUserId, string newMessage, string? mediaUrl = null)
     {
@@ -232,5 +218,44 @@ public class LinkedInService : ILinkedInService
 
         var obj = JsonDocument.Parse(json).RootElement;
         return obj.GetProperty("access_token").GetString()!;
+    }
+    public async Task<PlatformStats> GetStats(string accessToken, string linkedInUserId)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get,"https://api.linkedin.com/v2/me?projection=(numConnections)");
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        var connections = JsonDocument.Parse(json).RootElement.GetProperty("numConnections").GetInt32();
+
+        request = null; response = null; json = null;
+
+        request = new HttpRequestMessage(HttpMethod.Get,"https://api.linkedin.com/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=urn:li:organization:YOUR_ID");
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        json = await response.Content.ReadAsStringAsync();
+        int views = JsonDocument.Parse(json).RootElement.GetProperty("elements")[0].GetProperty("totalShareStatistics").GetProperty("impressionsCount").GetInt32();
+        request = null; response = null; json = null;
+
+        request = new HttpRequestMessage(HttpMethod.Get,"https://api.linkedin.com/v2/socialActions/urn:li:organization:YOUR_ID?projection=(likesSummary)");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        json = await response.Content.ReadAsStringAsync();
+        var likes = JsonDocument.Parse(json).RootElement.GetProperty("likesSummary").GetProperty("totalLikes").GetInt32();
+
+        return new PlatformStats
+        {
+            Followers = connections,
+            Views = views,
+            Likes = likes
+        };
     }
 }

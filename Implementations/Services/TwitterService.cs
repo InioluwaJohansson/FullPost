@@ -7,15 +7,18 @@ using FullPost.Models.DTOs;
 using Tweetinvi;
 using Tweetinvi.Models;
 using Tweetinvi.Parameters;
+using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace FullPost.Implementations.Services;
 public class TwitterService : ITwitterService
 {
     private readonly TwitterKeys _twitterKeys;
-
+    private readonly HttpClient _httpClient;
     public TwitterService(IConfiguration config)
     {
         _twitterKeys = config.GetSection("TwitterKeys").Get<TwitterKeys>();
+        _httpClient = new HttpClient();
     }
 
     private TwitterClient CreateClient(string userAccessToken, string userAccessSecret)
@@ -123,7 +126,62 @@ public class TwitterService : ITwitterService
             Likes = t.FavoriteCount,
             Comments = t.RetweetCount
         }).OrderByDescending(t => t.CreatedAt).ToList();
-
         return result;
     }
+    public async Task<PlatformStats> GetStats(string accessToken, string accessSecret, string bearerToken)
+    {
+        var client = CreateClient(accessToken, accessSecret);
+
+        var user = await client.Users.GetAuthenticatedUserAsync();
+        var tweets = await client.Timelines.GetUserTimelineAsync(
+            new GetUserTimelineParameters(user.Id)
+            {
+                PageSize = int.MaxValue
+            }
+        );
+
+        if (tweets == null)
+        {
+            return new PlatformStats
+            {
+                Followers = user.FollowersCount,
+                Views = 0,
+                Likes = 0
+            };
+        }
+        var tweetIds = tweets.Select(t => t.IdStr).ToList();
+        int totalLikes = 0;
+        int totalViews = 0;
+
+        foreach (var chunk in tweetIds.Chunk(100))
+        {
+            var ids = string.Join(",", chunk);
+            var url = $"https://api.twitter.com/2/tweets?ids={ids}&tweet.fields=public_metrics";
+            var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+            var response = await _httpClient.SendAsync(request);
+            var json = await response.Content.ReadAsStringAsync();
+
+            var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("data", out var data))
+                continue;
+
+            foreach (var item in data.EnumerateArray())
+            {
+                var m = item.GetProperty("public_metrics");
+                totalLikes += m.GetProperty("like_count").GetInt32();
+                totalViews += m.GetProperty("impression_count").GetInt32();
+            }
+        }
+        return new PlatformStats
+        {
+            Followers = user.FollowersCount,
+            Views = totalViews,
+            Likes = totalLikes
+        };
+    }
+
+
 }

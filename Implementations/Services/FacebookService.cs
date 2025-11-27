@@ -251,4 +251,42 @@ public class FacebookService : IFacebookService
         }
         return posts.OrderByDescending(p => p.CreatedTime).ToList();
     }
+    public async Task<PlatformStats> GetStats(string accessToken)
+    {
+        var userResp = await _httpClient.GetStringAsync(
+            $"https://graph.facebook.com/me?fields=followers_count&access_token={accessToken}"
+        );
+
+        var followers = JsonDocument.Parse(userResp)
+            .RootElement.GetProperty("followers_count").GetInt32();
+
+        var insightsResp = await _httpClient.GetStringAsync(
+            $"https://graph.facebook.com/me/insights/page_impressions?access_token={accessToken}"
+        );
+
+        var views = JsonDocument.Parse(insightsResp)
+            .RootElement.GetProperty("data")[0]
+            .GetProperty("values")[0]
+            .GetProperty("value").GetInt32();
+
+        var postsResp = await _httpClient.GetStringAsync(
+            $"https://graph.facebook.com/me/posts?fields=reactions.summary(true)&access_token={accessToken}"
+        );
+
+        int totalReactions = 0;
+        var postsJson = JsonDocument.Parse(postsResp).RootElement.GetProperty("data");
+
+        foreach (var p in postsJson.EnumerateArray())
+        {
+            var reactions = p.GetProperty("reactions").GetProperty("summary").GetProperty("total_count").GetInt32();
+            totalReactions += reactions;
+        }
+
+        return new PlatformStats
+        {
+            Followers = followers,
+            Views = views,
+            Likes = totalReactions
+        };
+    }
 }

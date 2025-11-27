@@ -79,59 +79,84 @@ public class TikTokService : ITikTokService
     public async Task<IList<TikTokVideoResponse>> GetAllPostsAsync(string accessToken, string openId, int start, int limit = 50)
     {
         var endpoint = $"{TikTokApiBase}video/list/?open_id={openId}&max_count={limit}&cursor={start}";
-    var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
-    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-    var response = await _httpClient.SendAsync(request);
-    var json = await response.Content.ReadAsStringAsync();
+        var response = await _httpClient.SendAsync(request);
+        var json = await response.Content.ReadAsStringAsync();
 
-    if (!response.IsSuccessStatusCode)
-        throw new Exception($"TikTok fetch videos failed: {json}");
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"TikTok fetch videos failed: {json}");
 
-    var rawData = JsonDocument.Parse(json).RootElement.GetProperty("data");
-    var posts = new List<TikTokVideoResponse>();
+        var rawData = JsonDocument.Parse(json).RootElement.GetProperty("data");
+        var posts = new List<TikTokVideoResponse>();
 
-    foreach (var item in rawData.EnumerateArray())
-    {
-        var videoObj = item.TryGetProperty("video", out var videoProp) ? videoProp : default;
-        var stats = item.TryGetProperty("stats", out var statsProp) ? statsProp : default;
-
-        var video = new TikTokVideoResponse
+        foreach (var item in rawData.EnumerateArray())
         {
-            VideoId = item.TryGetProperty("id", out var id) ? id.GetString() : null,
-            Description = item.TryGetProperty("desc", out var desc) ? desc.GetString() : null,
-            Duration = item.TryGetProperty("duration", out var dur) ? dur.GetInt64() : 0,
-            CoverImageUrl = videoObj.TryGetProperty("cover", out var cover) &&
-                            cover.TryGetProperty("url", out var coverUrl)
-                            ? coverUrl.GetString()
-                            : null,
-            PlayUrl = videoObj.TryGetProperty("play_addr", out var playAddr) &&
-                      playAddr.TryGetProperty("url", out var url)
-                      ? url.GetString()
-                      : null,
-            Author = item.TryGetProperty("author", out var authorObj) 
-                     ? new TikTokAuthor
-                     {
-                         Username = authorObj.TryGetProperty("unique_id", out var uname) ? uname.GetString() : null,
-                         DisplayName = authorObj.TryGetProperty("nickname", out var dname) ? dname.GetString() : null,
-                         AvatarUrl = authorObj.TryGetProperty("avatar_thumb", out var avatar) &&
-                                     avatar.TryGetProperty("url_list", out var urlList) &&
-                                     urlList.ValueKind == JsonValueKind.Array && urlList.GetArrayLength() > 0
-                                     ? urlList[0].GetString()
-                                     : null
-                     }
-                     : null,
-            // TikTok stats
-            Views = stats.TryGetProperty("play_count", out var playCount) ? playCount.GetInt64() : 0,
-            Likes = stats.TryGetProperty("digg_count", out var diggCount) ? diggCount.GetInt64() : 0,
-            Comments = stats.TryGetProperty("comment_count", out var commentCount) ? commentCount.GetInt64() : 0
-        };
+            var videoObj = item.TryGetProperty("video", out var videoProp) ? videoProp : default;
+            var stats = item.TryGetProperty("stats", out var statsProp) ? statsProp : default;
 
-        posts.Add(video);
+            var video = new TikTokVideoResponse
+            {
+                VideoId = item.TryGetProperty("id", out var id) ? id.GetString() : null,
+                Description = item.TryGetProperty("desc", out var desc) ? desc.GetString() : null,
+                Duration = item.TryGetProperty("duration", out var dur) ? dur.GetInt64() : 0,
+                CoverImageUrl = videoObj.TryGetProperty("cover", out var cover) &&
+                                cover.TryGetProperty("url", out var coverUrl)
+                                ? coverUrl.GetString()
+                                : null,
+                PlayUrl = videoObj.TryGetProperty("play_addr", out var playAddr) &&
+                        playAddr.TryGetProperty("url", out var url)
+                        ? url.GetString()
+                        : null,
+                Author = item.TryGetProperty("author", out var authorObj) 
+                        ? new TikTokAuthor
+                        {
+                            Username = authorObj.TryGetProperty("unique_id", out var uname) ? uname.GetString() : null,
+                            DisplayName = authorObj.TryGetProperty("nickname", out var dname) ? dname.GetString() : null,
+                            AvatarUrl = authorObj.TryGetProperty("avatar_thumb", out var avatar) &&
+                                        avatar.TryGetProperty("url_list", out var urlList) &&
+                                        urlList.ValueKind == JsonValueKind.Array && urlList.GetArrayLength() > 0
+                                        ? urlList[0].GetString()
+                                        : null
+                        }
+                        : null,
+                Views = stats.TryGetProperty("play_count", out var playCount) ? playCount.GetInt64() : 0,
+                Likes = stats.TryGetProperty("digg_count", out var diggCount) ? diggCount.GetInt64() : 0,
+                Comments = stats.TryGetProperty("comment_count", out var commentCount) ? commentCount.GetInt64() : 0
+            };
+
+            posts.Add(video);
+        }
+
+        return posts.OrderByDescending(v => v.VideoId).ToList();
     }
 
-    // Sort by descending creation (or id)
-    return posts.OrderByDescending(v => v.VideoId).ToList();
+    public async Task<PlatformStats> GetStats(string accessToken, string openId, int limit = int.MaxValue)
+    {
+
+        var resp = await _httpClient.GetStringAsync($"{TikTokApiBase}/user/info/?open_id={openId}&fields=follower_count,likes_count");
+        var json = JsonDocument.Parse(resp);
+        var userData = json.RootElement.GetProperty("data").GetProperty("user");
+        int followers = userData.GetProperty("follower_count").GetInt32();
+        int likes = userData.GetProperty("likes_count").GetInt32();
+        var videosResp = await _httpClient.GetStringAsync($"{TikTokApiBase}/video/list/?open_id={openId}&max_count={limit}");
+        var videosJson = JsonDocument.Parse(videosResp).RootElement.GetProperty("data");
+        int totalViews = 0;
+        foreach (var v in videosJson.EnumerateArray())
+        {
+            if (v.TryGetProperty("statistics", out var stats) &&
+                stats.TryGetProperty("play_count", out var play))
+            {
+                totalViews += play.GetInt32();
+            }
+        }
+        return new PlatformStats
+        {
+            Followers = followers,
+            Likes = likes,
+            Views = totalViews
+        };
     }
 
     public Task<SocialPostResult> EditPostAsync(string accessToken, string videoId, string newTitle)

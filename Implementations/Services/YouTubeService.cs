@@ -219,16 +219,13 @@ public class YouTubeService : IYouTubeService
     {
         if (start <= 0)
             return null;
-
         var searchRequest = youtube.Search.List("snippet");
         searchRequest.ChannelId = channelId;
-        searchRequest.MaxResults = 50; // YouTube max per page
+        searchRequest.MaxResults = 50;
         searchRequest.Type = "video";
         searchRequest.Order = SearchResource.ListRequest.OrderEnum.Date;
-
         string nextPageToken = null;
         int currentIndex = 0;
-
         while (true)
         {
             searchRequest.PageToken = nextPageToken;
@@ -242,5 +239,19 @@ public class YouTubeService : IYouTubeService
             if (string.IsNullOrEmpty(nextPageToken))
                 return null;
         }
+    }
+    public async Task<YouTubePlatformStats> GetStats(string accessToken)
+    {
+        var youtube = CreateYouTubeClient(accessToken);
+        var request = youtube.Channels.List("statistics");
+        request.Mine = true;
+        var response = await request.ExecuteAsync();
+        var stats = response.Items[0].Statistics;
+        return new YouTubePlatformStats
+        {
+            Followers = stats.SubscriberCount ?? 0,
+            Views = stats.ViewCount ?? 0,
+            Likes = 0
+        };
     }
 }
