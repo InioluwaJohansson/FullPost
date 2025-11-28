@@ -19,7 +19,8 @@ public class FullPostBackgroundService : BackgroundService
         var task1 = Task.Run(() => ResetMonthlyPostCountAsync(token), token);
         var task2 = Task.Run(() => ResetToBasic(token), token);
         var task3 = Task.Run(() => CheckRenewals(token), token);
-        await Task.WhenAll(task1, task2, task3);
+        var task4 = Task.Run(() => GetSubscribersAnalyticsData(token), token);
+        await Task.WhenAll(task1, task2, task3, task4);
         await Task.CompletedTask;
     }
     private async Task ResetMonthlyPostCountAsync(CancellationToken cancellationToken)
@@ -62,6 +63,18 @@ public class FullPostBackgroundService : BackgroundService
             _logger.LogInformation("Check renewals executed.");
 
             await Task.Delay(TimeSpan.FromMinutes(30), cancellationToken);
+        }
+    }
+    private async Task GetSubscribersAnalyticsData(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<IAnalyticsService>();
+
+            await service.GetSubscribersAnalyticsData();
+            _logger.LogInformation("Get subscribers analytics data executed.");
+            await Task.Delay(TimeSpan.FromDays(7), cancellationToken);
         }
     }
 }

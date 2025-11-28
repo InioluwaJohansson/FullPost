@@ -4,11 +4,6 @@ public class Analytic : AuditableEntity
 {
     public int UserId { get; set; }
     public int NoOfPosts { get; set; }
-    public int TotalReach { get; set; }
-     public int TotalViews => 
-        TwitterViews + TikTokViews + InstagramViews + FacebookViews + (int)YouTubeViews + LinkedInViews;
-    public int TotalLikes =>
-        TwitterLikes + TikTokLikes + InstagramLikes + FacebookReactions + (int)YouTubeLikes + LinkedInLikes; 
     public int TwitterFollowers { get; set; }
     public int TwitterViews { get; set; }
     public int TwitterLikes { get; set; }
